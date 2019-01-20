@@ -275,14 +275,22 @@ class Edge:
 
     @property
     def tag(self):
-        return self._categories[0].tag
+        # returns the tag of the base layer category (the first one without parent)
+        for c in self._categories:
+            if not c.parent:
+                return c.tag
 
     @tag.setter
     @ModifyPassage
     def tag(self, new_tag):
-        old_tag = self.tag
-        self._categories[0].tag = new_tag
-        self._root._change_edge_tag(self, old_tag)
+        # sets the new tag to the base layer category (the first one without parent)
+        for c in self._categories:
+            if not c.parent:
+                old_tag = c.tag
+                c.tag = new_tag
+                self._root._change_edge_tag(self, old_tag)
+                return
+
 
     @property
     def root(self):
