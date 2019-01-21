@@ -21,7 +21,7 @@ WEAK_LABELED = "weak_labeled"
 LABELED = "labeled"
 REFINEMENT = "refinement"
 
-EVAL_TYPES = (LABELED, UNLABELED, WEAK_LABELED)
+EVAL_TYPES = (LABELED, UNLABELED, WEAK_LABELED, REFINEMENT)
 
 # Pairs that are considered as equivalent for the purposes of evaluation
 EQUIV = ((EdgeTags.Process, EdgeTags.State),
