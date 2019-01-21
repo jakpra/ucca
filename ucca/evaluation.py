@@ -19,6 +19,7 @@ from ucca.layer1 import EdgeTags, NodeTags
 UNLABELED = "unlabeled"
 WEAK_LABELED = "weak_labeled"
 LABELED = "labeled"
+REFINEMENT = "refinement"
 
 EVAL_TYPES = (LABELED, UNLABELED, WEAK_LABELED)
 
@@ -94,15 +95,22 @@ class Evaluator:
             if eval_type == UNLABELED:
                 mutual_tags[y] = ()
             else:
-                tags = [set(c.edge.tag for c in m[y]) for m in (m1, m2)]
+                if eval_type == REFINEMENT:
+                    tags = [set((c.edge.tag, c.edge.refinement) for c in m[y]) for m in (m1, m2)]
+                else:
+                    tags = [set(c.edge.tag for c in m[y]) for m in (m1, m2)]
                 if eval_type == WEAK_LABELED:
                     tags[0] = expand_equivalents(tags[0])
                 intersection = set.intersection(*tags)
                 if intersection:  # non-empty intersection
                     mutual_tags[y] = intersection
+
         if counter is not None:
             for y in m1.keys() | m2.keys():
-                tags = [sorted(set(c.edge.tag for c in m.get(y, ()) if not c.is_unary_child)) for m in (m1, m2)]
+                if eval_type == REFINEMENT:
+                    tags = [sorted(set((c.edge.tag, c.edge.refinement) for c in m.get(y, ()) if not c.is_unary_child)) for m in (m1, m2)]
+                else:
+                    tags = [sorted(set(c.edge.tag for c in m.get(y, ()) if not c.is_unary_child)) for m in (m1, m2)]
                 counter[tuple("|".join(t) or "<UNMATCHED>" for t in tags)] += 1
 
     def get_scores(self, p1, p2, eval_type, r=None):
@@ -116,6 +124,7 @@ class Evaluator:
         2. LABELED: also requires tag match (if there are multiple units with the same yield, requires one match)
         3. WEAK_LABELED: also requires weak tag match (if there are multiple units with the same yield,
                          requires one match)
+        4. REFINEMENT: requires both base tag and refinement tag match
         :param r: reference passage for fine-grained evaluation
         :returns: EvaluatorResults object if self.fscore is True, otherwise None
         """

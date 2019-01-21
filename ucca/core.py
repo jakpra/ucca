@@ -274,8 +274,16 @@ class Edge:
         self.extra = {}
 
     @property
+    def refinement(self):
+        # returns the tag of the refinement layer category (the first one with a base layer parent)
+        parent = self.tag
+        for c in self._categories:
+            if c.parent == parent:
+                return c.tag
+
+    @property
     def tag(self):
-        # returns the tag of the base layer category (the first one without parent)
+        # returns the tag of the base layer category (the first one without a parent)
         for c in self._categories:
             if not c.parent:
                 return c.tag
