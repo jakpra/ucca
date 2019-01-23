@@ -281,6 +281,18 @@ class Edge:
             if c.parent == parent:
                 return c.tag
 
+    @refinement.setter
+    def refinement(self, new_refinement):
+        # returns the tag of the refinement layer category (the first one with a base layer parent)
+        parent = self.tag
+        found = False
+        for c in self._categories:
+            if c.parent == parent:
+                c.tag = new_refinement
+                found = True
+        if not found:
+            self.add(new_refinement, slot="", layer="", parent=parent)
+
     @property
     def tag(self):
         # returns the tag of the base layer category (the first one without a parent)
