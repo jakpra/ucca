@@ -5,7 +5,7 @@ from collections import Counter
 
 import matplotlib.pyplot as plt
 
-from ..ucca import core as ucore, convert as uconv, layer1 as ul1, visualization as uviz
+from ucca import core as ucore, convert as uconv, layer1 as ul1, visualization as uviz
 
 
 def get_heads(node):

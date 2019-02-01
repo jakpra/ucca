@@ -284,6 +284,7 @@ class Edge:
                 return c.tag
 
     @refinement.setter
+    @ModifyPassage
     def refinement(self, new_refinement):
         # returns the tag of the refinement layer category (the first one with a base layer parent)
         parent = self.tag
