@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 import sys
 
+import argparse
+import json
 import requests
 
-from ucca import normalization, validation
 from ucca import convert
-import json
-import argparse
+from ucca import normalization, validation
 from uccaapp.api import ServerAccessor
 
 desc = """Sets the status of submitted tasks to ONGOING"""
@@ -38,7 +38,7 @@ class TaskSubmitter(ServerAccessor):
                 normalization.normalize(passage)
                 validation_errors = list(validation.validate(passage, linkage=False))
                 if len(validation_errors) == 0:
-                        self.submit_task(task)
+                        self.submit_task(**task)
                         print(task_id, "SUBMITTED", file=log_file, sep="\t", flush=True)
                 else:
                     for error in validation_errors:

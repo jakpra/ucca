@@ -1,6 +1,6 @@
 import xml.etree.ElementTree as ETree
 
-from ucca import layer0, layer1, convert
+from ucca import layer0, layer1, convert, textutil
 from .conftest import loaded, load_xml
 
 """Tests convert module correctness and API."""
@@ -63,7 +63,7 @@ def test_site_simple():
     linker = head.children[9]
     _test_edges(linker, [layer1.EdgeTags.Center,
                          layer1.EdgeTags.Elaborator])
-    assert linker.extra["remarks"], '"remark"'
+    assert linker.extra["remarks"], 'remark'
     center = linker.children[0]
     elab = linker.children[1]
     _test_terms(center, terms[0:1])
@@ -155,7 +155,8 @@ def test_to_standard():
     ref = load_xml("test_files/standard3.xml")  # old format of xml
     new_ref = convert.to_standard(convert.from_standard(ref))   # converting to the new xml format
     root = convert.to_standard(passage)
-    assert ETree.tostring(new_ref) == ETree.tostring(root)
+    assert textutil.indent_xml(ETree.tostring(new_ref)).splitlines() == \
+            textutil.indent_xml(ETree.tostring(root)).splitlines()
 
 
 def test_from_standard():

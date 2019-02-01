@@ -78,7 +78,7 @@ def _single_child_by_tag(node, tag, must=True):
 
     """
     for edge in node:
-        if edge.tag == tag:
+        if tag in edge.tags:
             return edge.child
     if must:
         raise MissingRelationError(node.ID, tag)
@@ -96,7 +96,7 @@ def _multiple_children_by_tag(node, tag):
         A list of connected Nodes, can be empty
 
     """
-    return [edge.child for edge in node if edge.tag == tag]
+    return [edge.child for edge in node if tag in edge.tags]
 
 
 class Linkage(core.Node):
@@ -322,34 +322,32 @@ class FoundationalNode(core.Node):
         return self.state is not None or self.process is not None
 
     def __str__(self):
-        def start(x):
-            return x.position if x.layer.ID == layer0.LAYER_ID else x.start_position
+        def start(e):
+            return e.child.position if e.child.layer.ID == layer0.LAYER_ID else e.child.start_position
 
-        def end(x):
-            return x.position if x.layer.ID == layer0.LAYER_ID else x.end_position
-
-        sorted_edges = sorted(list(self), key=lambda e: start(e.child))
-        output = ''
-        for i, edge in enumerate(sorted_edges):
+        sorted_edges = sorted(self, key=start)
+        output = []
+        for edge, next_edge in zip(sorted_edges, sorted_edges[1:] + [None]):
             node = edge.child
+            remote = edge.attrib.get('remote')
+            end = node.position if node.layer.ID == layer0.LAYER_ID else node.end_position
             if edge.tag == EdgeTags.Terminal:
-                space = ' ' if not end(node) == self.end_position else ''
-                output += '{}{}'.format(str(node), space)
+                output.append(str(node))
+                if end != self.end_position:
+                    output.append(" ")
             else:
-                edge_tag = edge.tag
-                if edge.attrib.get('remote'):
-                    edge_tag += '*'
+                edge_tags = "|".join(edge.tags)
+                if remote:
+                    edge_tags += '*'
                 if edge.attrib.get('uncertain'):
-                    edge_tag += '?'
-                if start(node) == -1:
-                    output += "[{} IMPLICIT] ".format(edge_tag)
+                    edge_tags += '?'
+                if start(edge) == -1:
+                    output.append("[{} IMPLICIT] ".format(edge_tags))
                 else:
-                    output += "[{} {}] ".format(edge_tag, str(node))
-            if start(node) != -1 and not edge.attrib.get('remote') and \
-                    i + 1 < len(sorted_edges) and \
-                    end(node) + 1 < start(sorted_edges[i + 1].child):
-                output += "... "  # adding '...' if discontiguous
-        return output
+                    output.append("[{} {}] ".format(edge_tags, str(node)))
+            if start(edge) != -1 and not remote and next_edge is not None and end + 1 < start(next_edge):
+                output.append("... ")  # adding '...' if discontiguous
+        return "".join(output)
 
     def get_top_scene(self):
         """Returns the top-level scene this FNode is within, or None"""
@@ -433,13 +431,15 @@ class Layer1(core.Layer):
             except KeyError:
                 return id_str
 
-    def add_fnode_multiple(self, parent, edge_categories, *, implicit=False):
+    def add_fnode_multiple(self, parent, edge_categories, *, implicit=False, edge_attrib=None):
         """Adds a new :class:`FNode` whose parent and Edge tag are given.
 
         :param parent: the FNode which will be the parent of the new FNode.
                 If the parent is None, adds under the layer head FNode.
         :param edge_categories: list of categories on the Edge between the parent and the new FNode.
         :param implicit: whether to set the new FNode as implicit (default False)
+        :param edge_attrib: Keyword only, dictionary of attributes to be passed
+                to the Edge initializer.
 
         :return: the newly created FNode
 
@@ -451,32 +451,39 @@ class Layer1(core.Layer):
         fnode = FoundationalNode(root=self.root, tag=NodeTags.Foundational,
                                  ID=self.next_id(), attrib=node_attrib)
         if edge_categories:
-            parent.add_multiple(edge_categories, fnode)
+            parent.add_multiple(edge_categories, fnode, edge_attrib=edge_attrib)
         return fnode
 
     def add_fnode(self, parent, tag, *, implicit=False):
         return self.add_fnode_multiple(parent, [(tag,)], implicit=implicit)
 
-    def add_remote_multiple(self, parent, edge_categories, child):
+    def add_remote_multiple(self, parent, edge_categories, child, edge_attrib=None):
         """Adds a new :class:`core`.Edge with remote attribute between the nodes.
 
         :param parent: the parent of the remote Edge
         :param edge_categories: list of categories of the Edge
         :param child: the child of the remote Edge
+        :param edge_attrib: Keyword only, dictionary of attributes to be passed
+                to the Edge initializer.
 
         :raise core.FrozenPassageError if the Passage is frozen
         """
-        return parent.add_multiple(edge_categories, child, edge_attrib={'remote': True})
+        if edge_attrib is None:
+            edge_attrib = {}
+        edge_attrib["remote"] = True
+        return parent.add_multiple(edge_categories, child, edge_attrib=edge_attrib)
 
     def add_remote(self, parent, tag, child):
         return self.add_remote_multiple(parent, [(tag,)], child)
 
-    def add_punct(self, parent, terminal, layer= None, slot= None):
+    def add_punct(self, parent, terminal, layer=None, slot=None, edge_attrib=None):
         """Adds a PunctNode as the child of parent and the Terminal under it.
 
         :param parent: the parent of the newly created PunctNode. If None, adds
                 under rhe layer head FNode.
         :param terminal: the punctuation Terminal we want to put under parent.
+        :param edge_attrib: Keyword only, dictionary of attributes to be passed
+                to the Edge initializer.
 
         :return: the newly create PunctNode.
 
@@ -487,7 +494,7 @@ class Layer1(core.Layer):
             parent = self._head_fnode
         punct_node = PunctNode(root=self.root, tag=NodeTags.Punctuation,
                                ID=self.next_id())
-        parent.add_multiple([(EdgeTags.Punctuation, slot, layer)], punct_node)
+        parent.add_multiple([(EdgeTags.Punctuation, slot, layer)], punct_node, edge_attrib=edge_attrib)
         punct_node.add_multiple([(EdgeTags.Terminal, slot, layer)], terminal)
         return punct_node
 

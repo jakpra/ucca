@@ -82,7 +82,7 @@
         </node>
         <node ID="1.2" type="FN">
             <attributes/>
-            <extra remarks="&quot;remark&quot;"/>
+            <extra remarks="remark"/>
             <edge toID="1.3" type="C">
                 <attributes/>
             </edge>

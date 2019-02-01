@@ -117,11 +117,11 @@ class ServerAccessor:
         logging.debug("Got %s: %s" % (prefix, json.dumps(out)))
         return out
 
-    def submit_task(self, data):
-        logging.debug("Submitting %s task: %s" % (self.type(data), json.dumps(data)))
-        self.request("put", "user_tasks/%s/draft" % data["id"], json=data)
-        out = self.request("put", "user_tasks/%s/submit" % data["id"], json=data).json()
-        logging.debug("Submitted %s task: %s" % (self.type(data), json.dumps(out)))
+    def submit_task(self, **kwargs):
+        logging.debug("Submitting %s task: %s" % (self.type(kwargs), json.dumps(kwargs)))
+        self.request("put", "user_tasks/%s/draft" % kwargs["id"], json=kwargs)
+        out = self.request("put", "user_tasks/%s/submit" % kwargs["id"], json=kwargs).json()
+        logging.debug("Submitted %s task: %s" % (self.type(kwargs), json.dumps(out)))
         return out
 
     def get_source(self, source_id):

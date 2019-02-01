@@ -6,6 +6,7 @@ v1.3
 2017-01-16: fix bug in moving common Fs
 2018-04-12: exclude punctuation nodes regardless of edge tag
 2018-12-11: fix another bug in moving common Fs
+2019-01-22: support multiple categories per edge
 """
 from collections import Counter, OrderedDict
 from itertools import groupby
@@ -95,10 +96,14 @@ class Evaluator:
             if eval_type == UNLABELED:
                 mutual_tags[y] = ()
             else:
+<<<<<<< HEAD
                 if eval_type == REFINEMENT:
                     tags = [set((c.edge.tag, c.edge.refinement) for c in m[y]) for m in (m1, m2)]
                 else:
                     tags = [set(c.edge.tag for c in m[y]) for m in (m1, m2)]
+=======
+                tags = [set(t for c in m[y] for t in c.edge.tags) for m in (m1, m2)]
+>>>>>>> 5e6dcbe3a2417516c90ed5cd422000adc9844885
                 if eval_type == WEAK_LABELED:
                     tags[0] = expand_equivalents(tags[0])
                 intersection = set.intersection(*tags)

@@ -46,10 +46,11 @@ class Categories(Construction):
 
     def __call__(self, candidate):
         try:
-            tag = candidate.edge.tag
+            tags = candidate.edge.tags
         except AttributeError:
-            tag = candidate
-        yield create_category_construction(tag)
+            tags = [candidate]
+        for tag in tags:
+            yield create_category_construction(tag)
 
 
 def create_category_construction(tag):
@@ -63,7 +64,7 @@ def positions(terminals):
 class Candidate:
     def __init__(self, edge, reference=None, reference_yield_tags=None, verbose=False):
         self.edge = edge
-        self.out_tags = {e.tag for e in edge.child}
+        self.out_tags = {t for e in edge.child for t in e.tags}
         self.reference = reference
         self.reference_yield_tags = reference_yield_tags
         self.verbose = verbose
@@ -97,7 +98,7 @@ class Candidate:
 
     @property
     def excluded(self):
-        return self.edge.tag in EXCLUDED_EDGE_TAGS or self.edge.child.tag in EXCLUDED_NODE_TAGS
+        return bool(EXCLUDED_EDGE_TAGS.intersection(self.edge.tags)) or self.edge.child.tag in EXCLUDED_NODE_TAGS
 
     @property
     def pos(self):
@@ -126,7 +127,7 @@ class Candidate:
         return ret
 
     def is_punct(self):
-        return self.edge.tag == EdgeTags.Punctuation or self.edge.child.tag == NodeTags.Punctuation
+        return EdgeTags.Punctuation in self.edge.tags or self.edge.child.tag == NodeTags.Punctuation
 
     def is_primary(self):
         return not self.remote and not self.implicit and not self.is_punct()
@@ -135,7 +136,7 @@ class Candidate:
         return self.remote and not self.implicit and not self.is_punct()
 
     def is_predicate(self):
-        return self.edge.tag in {EdgeTags.Process, EdgeTags.State} and \
+        return bool({EdgeTags.Process, EdgeTags.State}.intersection(self.edge.tags)) and \
                self.out_tags <= {EdgeTags.Center, EdgeTags.Function, EdgeTags.Terminal} and \
                "to" not in self.tokens
 
@@ -156,24 +157,19 @@ class Candidate:
         return self._terminal_yield if construction.is_punct else self._terminal_yield_no_punct
 
     def __str__(self):
-        return "[%s %s]" % (self.edge.tag, self.edge.child)
+        return "[%s %s]" % (" ".join(self.edge.tags), self.edge.child)
 
 
-EXCLUDED_EDGE_TAGS = (EdgeTags.LinkArgument,
-                      EdgeTags.LinkRelation,
-                      EdgeTags.Terminal)
-
-EXCLUDED_NODE_TAGS = (NodeTags.Linkage,
-                      layer0.NodeTags.Word,
-                      layer0.NodeTags.Punct)
+EXCLUDED_EDGE_TAGS = {EdgeTags.LinkArgument, EdgeTags.LinkRelation, EdgeTags.Terminal}
+EXCLUDED_NODE_TAGS = {NodeTags.Linkage, layer0.NodeTags.Word, layer0.NodeTags.Punct}
 
 CONSTRUCTIONS = (
     Construction("primary", "Regular edges", Candidate.is_primary, default=True),
     Construction("remote", "Remote edges", Candidate.is_remote, default=True),
     Construction("aspectual_verbs", "Aspectual verbs",
-                 lambda c: c.pos == {"VERB"} and c.edge.tag == EdgeTags.Adverbial),
+                 lambda c: c.pos == {"VERB"} and EdgeTags.Adverbial in c.edge.tags),
     Construction("light_verbs", "Light verbs",
-                 lambda c: c.pos == {"VERB"} and c.edge.tag == EdgeTags.Function),
+                 lambda c: c.pos == {"VERB"} and EdgeTags.Function in c.edge.tags),
     Construction("mwe", "Multi-word expressions",
                  lambda c: c.is_primary() and c.edge.child.tag == NodeTags.Foundational and len(
                      c.edge.child.terminals) > 1),  # Unanalyzable unit
@@ -181,12 +177,13 @@ CONSTRUCTIONS = (
                  lambda c: "ADJ" not in c.pos and "NOUN" in c.pos and c.is_predicate()),
     Construction("pred_adjs", "Predicate adjectives",
                  lambda c: "ADJ" in c.pos and "NOUN" not in c.pos and c.is_predicate()),
-    Construction("expletives", "Expletives",
-                 lambda c: c.tokens <= {"it", "there"} and c.edge.tag == EdgeTags.Function),
+
     Construction("primary_participants", "Regular Participant edges",
                  lambda c: c.is_primary() and c.edge.tag == "A"),
     Construction("remote_participants", "Remote Participant edges",
                  lambda c: c.is_remote() and c.edge.tag == "A"),
+    Construction("expletives", "Expletives",
+                 lambda c: c.tokens <= {"it", "there"} and EdgeTags.Function in c.edge.tags),
     Categories(),
 )
 PRIMARY = CONSTRUCTIONS[0]
@@ -272,6 +269,6 @@ def create_passage_yields(p, *args, tags=True, **kwargs):
         for candidate in candidates:
             terminal_yield = candidate.terminal_yield(construction)
             # if terminal_yield:
-            construction_yield_candidates.setdefault(terminal_yield, []).append(
-                candidate.edge.tag if tags else candidate)
+            construction_yield_candidates.setdefault(terminal_yield, []).extend(
+                candidate.edge.tags if tags else [candidate])
     return yield_candidates

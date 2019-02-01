@@ -1,13 +1,12 @@
-from itertools import groupby
-
 import string
+from itertools import groupby
 from operator import attrgetter
 
 from ucca import layer0, layer1
 from ucca.layer0 import NodeTags as L0Tags
 from ucca.layer1 import EdgeTags as ETags, NodeTags as L1Tags
 
-LINKAGE = (ETags.LinkArgument, ETags.LinkRelation)
+LINKAGE = {ETags.LinkArgument, ETags.LinkRelation}
 
 
 def validate(passage, linkage=True, multigraph=False):
@@ -73,22 +72,23 @@ class NodeValidator:
                                            ETags.Punctuation, ETags.LinkRelation, ETags.LinkArgument))
         if s:
             yield "Top-level unit (%s) with %s children: %s" %\
-                  (self.node_id, join(s), join(e.child for e in self.node if e.tag in s))
+                  (self.node_id, join(s), join(e.child for e in self.node if s.intersection(e.tags)))
 
     def validate_non_terminal(self, linkage=False, multigraph=False):
         if linkage and self.node.tag == L1Tags.Linkage:
             yield from self.validate_linkage()
         elif self.node.tag == L1Tags.Foundational:
             yield from self.validate_foundational()
-        primary_incoming = [e for e in self.node.incoming if not e.attrib.get("remote") and e.tag not in LINKAGE]
+        primary_incoming = [e for e in self.node.incoming if not e.attrib.get("remote") and
+                            not LINKAGE.intersection(e.tags)]
         if len(primary_incoming) > 1:
             yield "Unit (%s) with multiple non-remote parents (%s)" % (self.node_id, join(primary_incoming))
         remote_incoming = [e for e in self.node.incoming if e.attrib.get("remote")]
         if remote_incoming and not primary_incoming:
             yield "Unit (%s) with remote parents but no primary parents" % self.node_id
         for edge in self.node:
-            if (edge.tag == ETags.Punctuation) != (edge.child.tag == L1Tags.Punctuation):
-                yield "%s edge (%s) with %s child" % (edge.tag, edge, edge.child.tag)
+            if (ETags.Punctuation in edge.tags) != (edge.child.tag == L1Tags.Punctuation):
+                yield "%s edge (%s) with %s child" % (edge.tags, edge, edge.child.tag)
             # FN parent of Punctuation is disallowed unless the FN is unanalyzable
             if (self.node.tag == L1Tags.Foundational) and (edge.child.tag == L0Tags.Punct) and \
                     not len(self.node.terminals) + len(self.node.punctuation) == len(self.node.children) > 1 or \
@@ -142,17 +142,18 @@ class NodeValidator:
                                                ETags.Ground, ETags.Relator, ETags.Function))
             if s:
                 yield "Unit (%s) with parallel scenes has %s children: %s" %\
-                      (self.node_id, join(s), join(e.child for e in self.node if e.tag in s))
+                      (self.node_id, join(s), join(e.child for e in self.node if s.intersection(e.tags)))
         s = self.outgoing_tags.intersection(LINKAGE)
         if s:
             yield "Non-linkage unit (%s) with %s children: %s" %\
-                  (self.node_id, join(s), join(e.child for e in self.node if e.tag in s))
+                  (self.node_id, join(s), join(e.child for e in self.node if s.intersection(e.tags)))
 
 
 def tag_to_edge(edges):
     d = {}
     for edge in edges:
-        d.setdefault(edge.tag, []).append(edge)
+        for tag in edge.tags:
+            d.setdefault(tag, []).append(edge)
     return d
 
 

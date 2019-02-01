@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 
-import argparse
-import os
 import sys
 from itertools import count
+
+import argparse
+import os
 
 from ucca.convert import split2sentences, split_passage
 from ucca.ioutil import passage2file, get_passages_with_progress_bar, external_write_mode
@@ -16,7 +17,9 @@ desc = """Parses XML files in UCCA standard format, and writes a passage per sen
 class Splitter:
     def __init__(self, sentences, enum=False, suffix_format="%03d", suffix_start=0):
         self.sentences = sentences
-        self.sentence_to_index = dict(map(reversed, enumerate(sentences)))
+        self.sentence_to_index = {}
+        for i, sentence in enumerate(sentences):
+            self.sentence_to_index.setdefault(sentence, []).append(i)
         self.enumerate = enum
         self.suffix_format = suffix_format
         self.suffix_start = suffix_start
@@ -34,23 +37,28 @@ class Splitter:
     def split(self, passage):
         ends = []
         ids = []
-        tokens = []
+        token_lists = []
         for terminal in extract_terminals(passage):
-            tokens.append(terminal.text)
-            sentence = " ".join(tokens)
-            # if len(tokens) > max(map(len, map(str.split, sentence_to_index))):
-            #     raise ValueError("Failed matching '%s'" % sentence)
-            if self.index is not None and self.index < len(self.sentences) and \
-                    self.sentences[self.index].startswith(sentence):  # Try matching next sentence rather than shortest
-                index = self.index if self.sentences[self.index] == sentence else None
-            else:
-                index = self.index = self.sentence_to_index.get(sentence)
-            if index is not None:
-                self.matched_indices.add(index)
-                ends.append(terminal.position)
-                ids.append(str(index))
-                tokens = []
-                self.index += 1
+            token_lists.append([])
+            for terminals in token_lists if self.index is None else [token_lists[0]]:
+                terminals.append(terminal)
+                sentence = " ".join(t.text for t in terminals)
+                if self.index is not None and self.index < len(self.sentences) and self.sentences[
+                        self.index].startswith(sentence):  # Try matching next sentence rather than shortest
+                    index = self.index if self.sentences[self.index] == sentence else None
+                else:
+                    indices = self.sentence_to_index.get(sentence)
+                    index = self.index = indices.pop(0) if indices else None
+                if index is not None:
+                    self.matched_indices.add(index)
+                    last_end = terminals[0].position - 1
+                    if len(terminals) > 1 and last_end and last_end not in ends:
+                        ends.append(last_end)
+                    ends.append(terminal.position)
+                    ids.append(str(index))
+                    token_lists = []
+                    self.index += 1
+                    break
         return split_passage(passage, ends, ids=ids if self.enumerate else None,
                              suffix_format=self.suffix_format, suffix_start=self.suffix_start)
 
@@ -67,13 +75,14 @@ def main(args):
             outfile = os.path.join(args.outdir, args.prefix + sentence.ID + (".pickle" if args.binary else ".xml"))
             if args.verbose:
                 with external_write_mode():
+                    print(sentence, file=sys.stderr)
                     print("Writing passage file for sentence '%s'..." % outfile, file=sys.stderr)
             if args.normalize:
                 normalize(sentence)
             passage2file(sentence, outfile, binary=args.binary)
     if splitter and len(splitter.matched_indices) < len(splitter.sentences):
-        print("Unmatched sentences:", *[s for i, s in enumerate(splitter.sentences)
-                                        if i not in splitter.matched_indices], sep="\n")
+        print("", "Unmatched sentences:", *[s for i, s in enumerate(splitter.sentences)
+                                            if i not in splitter.matched_indices], sep="\n")
 
 
 if __name__ == "__main__":

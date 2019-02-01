@@ -4,6 +4,7 @@ import argparse
 import os
 import re
 from glob import glob
+
 from tqdm import tqdm
 
 from ucca.convert import to_text
@@ -27,9 +28,11 @@ def write_text(passage, f, lang):
 def main(args):
     os.makedirs(args.outdir, exist_ok=True)
     if args.join:
-        with open(os.path.join(args.outdir, args.join), "w", encoding="utf-8") as f:
+        out_file = os.path.join(args.outdir, args.join)
+        with open(out_file, "w", encoding="utf-8") as f:
             for passage in get_passages_with_progress_bar(sorted(args.filenames, key=numeric), desc="Converting"):
                 write_text(passage, f, lang=args.lang)
+        print("Wrote '%s'." % out_file)
     else:  # one file per passage
         for pattern in args.filenames:
             for filename in tqdm(glob(pattern) or [pattern], desc="Converting", unit=" passages"):
@@ -37,7 +40,6 @@ def main(args):
                 basename = os.path.splitext(os.path.basename(filename))[0]
                 with open(os.path.join(args.outdir, basename + ".txt"), "w", encoding="utf-8") as f:
                     write_text(passage, f, lang=args.lang)
-    print("Wrote '%s'." % args.outfile)
 
 
 if __name__ == "__main__":

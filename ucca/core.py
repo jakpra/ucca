@@ -10,7 +10,6 @@ are connected between themselves and to Nodes in other layers using
 
 import functools
 
-
 # Max number of digits allowed for a unique ID
 UNIQUE_ID_MAX_DIGITS = 5
 
@@ -120,11 +119,13 @@ class ModifyPassage:
         :raise FrozenPassageError: if the :class:`Passage` is frozen and can't be
                 modified.
         """
+
         @functools.wraps(self.fn)
         def decorated(*args, **kwargs):
             if args[0].root.frozen:
                 raise FrozenPassageError(args[0].root.ID)
             return self.fn(*args, **kwargs)
+
         return decorated(*args, **kwargs)
 
 
@@ -157,8 +158,10 @@ class _AttributeDict:
         :param other: AttributeDict to compare to
         :return: True iff the dictionaries are equal.
         """
+
         def omit_irrelevant(d):
             return {k: v for k, v in d.items() if k not in IRRELEVANT_ATTRIBUTES}
+
         return omit_irrelevant(self._dict) == omit_irrelevant(other._dict)
 
     @property
@@ -226,7 +229,6 @@ class Category:
 
     def to_xml(self):
         pass
-
 
 
 class Edge:
@@ -311,6 +313,10 @@ class Edge:
                 self._root._change_edge_tag(self, old_tag)
                 return
 
+
+    @property
+    def tags(self):
+        return [category.tag for category in self._categories]
 
     @property
     def root(self):
@@ -499,8 +505,8 @@ class Node:
 
         :param edge_categories: a list of 4-tuples representing the categories on this edge of the :class:`Edge`
                 connecting between the Nodes
-            node: the Node object which we want to have an Edge to
-            edge_attrib: Keyword only, dictionary of attributes to be passed
+        :param node: the Node object which we want to have an Edge to
+        :param edge_attrib: Keyword only, dictionary of attributes to be passed
                 to the Edge initializer.
 
         :return: the newly created Edge object
@@ -536,8 +542,7 @@ class Node:
                 is frozen and can't be modified.
 
         """
-        return self.add_multiple([(tag, )], node, edge_attrib=edge_attrib)
-
+        return self.add_multiple([(tag,)], node, edge_attrib=edge_attrib)
 
     @ModifyPassage
     def remove(self, edge_or_node):
@@ -557,8 +562,8 @@ class Node:
             try:
                 edge = [edge for edge in self._outgoing
                         if edge.child == edge_or_node][0]
-            except IndexError:
-                raise MissingNodeError(edge_or_node)
+            except IndexError as e:
+                raise MissingNodeError(edge_or_node) from e
         else:  # an Edge object
             edge = edge_or_node
 
@@ -566,8 +571,8 @@ class Node:
             self._outgoing.remove(edge)
             edge.child._incoming.remove(edge)
             self.root._remove_edge(edge)
-        except ValueError:
-            raise MissingNodeError(edge_or_node)
+        except ValueError as e:
+            raise MissingNodeError(edge_or_node) from e
 
     @property
     def orderkey(self):
@@ -622,8 +627,8 @@ class Node:
         edges, other_edges = [[edge for edge in node
                                if (ignore_node is None or
                                    not ignore_node(edge.child)) and (
-                                   ignore_edge is None or
-                                   not ignore_edge(edge))]
+                                       ignore_edge is None or
+                                       not ignore_edge(edge))]
                               for node in (self, other)]
         if len(edges) != len(other_edges):
             return False  # not necessary, but gives better performance
@@ -1033,8 +1038,8 @@ class Passage:
         for lid in layers:
             try:
                 self.layer(lid).copy(other)
-            except AttributeError:
-                raise UnimplementedMethodError()
+            except AttributeError as e:
+                raise UnimplementedMethodError() from e
         other.frozen = self.frozen
         return other
 
