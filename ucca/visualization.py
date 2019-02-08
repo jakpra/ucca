@@ -1,7 +1,6 @@
-from collections import defaultdict
-
 import re
 import warnings
+from collections import defaultdict
 from operator import attrgetter
 
 from ucca import layer0, layer1
@@ -23,7 +22,7 @@ def draw(passage, node_ids=False):
                               "color": ("black", "gray", "white")[n.tag == layer1.NodeTags.Linkage or
                                                                   2 * n.attrib.get("implicit", node_ids)]})
                       for n in passage.layer(layer1.LAYER_ID).all])
-    g.add_edges_from([(n.ID, e.child.ID, {"label": e.tag, "style": "dashed" if e.attrib.get("remote") else "solid"})
+    g.add_edges_from([(n.ID, e.child.ID, {"label": '|'.join(e.tags), "style": "dashed" if e.attrib.get("remote") else "solid"})
                       for layer in passage.layers for n in layer.all for e in n])
     pos = topological_layout(passage)
     nx.draw(g, pos, arrows=False, font_size=10,
@@ -114,7 +113,7 @@ def tikz(p, indent=None, node_ids=False):
   \tikzstyle{word} = [font=\rmfamily,color=black]
   """ % ("draw" if node_ids else "fill") + "\\" + tikz(l1.heads[0], indent=1, node_ids=node_ids) + \
             "\n".join([";"] + ["  \draw[dashed,->] (%s) to node [auto] {\scriptsize $%s$} (%s);" %
-                               (e.parent.ID.replace(".", "_"), e.tag, e.child.ID.replace(".", "_"))
+                               (e.parent.ID.replace(".", "_"), "|".join(e.tags), e.child.ID.replace(".", "_"))
                                for n in l1.all for e in n if e.attrib.get("remote")] + [r"\end{tikzpicture}"])
     return "node (" + p.ID.replace(".", "_") + ") " + (
         ("[word] {" +
@@ -123,7 +122,7 @@ def tikz(p, indent=None, node_ids=False):
          + "} ") if p.terminals or p.attrib.get("implicit") else ("\n" + indent * "  ").join(
             ["[circle] {%s}" % (node_label(p) or (p.ID if node_ids else "")), "{"] +
             ["child {" + tikz(e.child, indent + 1) +
-             " edge from parent node[auto]  {\scriptsize $" + e.tag + "$}}"
+             " edge from parent node[auto]  {\scriptsize $" + "|".join(e.tags) + "$}}"
              for e in sorted(p, key=lambda f: f.child.start_position)
              if not e.attrib.get("remote")] +
             ["}"]))

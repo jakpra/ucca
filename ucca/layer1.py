@@ -9,7 +9,6 @@ the type of relation between the Nodes.
 """
 
 import itertools
-
 import operator
 
 from ucca import core, layer0
@@ -265,6 +264,11 @@ class FoundationalNode(core.Node):
     def ftag(self):
         edge = self._fedge()
         return edge.tag if edge else None
+
+    @property
+    def ftags(self):
+        edge = self._fedge()
+        return edge.tags if edge else None
 
     def get_terminals(self, punct=True, remotes=False, visited=None):
         """Returns a list of all terminals under the span of this FoundationalNode.

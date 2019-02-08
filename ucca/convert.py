@@ -11,16 +11,15 @@ The possible other formats are:
     sdp (SemEval 2015 semantic dependency parsing shared task)
 """
 
-import sys
-from collections import defaultdict
-from itertools import repeat, groupby
-
 import json
 import os
 import pickle
 import re
+import sys
 import xml.etree.ElementTree as ET
 import xml.sax.saxutils
+from collections import defaultdict
+from itertools import repeat, groupby
 from operator import attrgetter, itemgetter
 
 from ucca import textutil, core, layer0, layer1
@@ -823,8 +822,9 @@ def to_sequence(passage):
 
 UNANALYZABLE = "Unanalyzable"
 UNCERTAIN = "Uncertain"
-IGNORED_CATEGORIES = {UNANALYZABLE, UNCERTAIN}
-IGNORED_ABBREVIATIONS = {EdgeTags.Unanalyzable, EdgeTags.Uncertain}
+COORDINATED_MAIN_REL = "Coordinated_Main_Rel."
+IGNORED_CATEGORIES = {UNANALYZABLE, UNCERTAIN, COORDINATED_MAIN_REL}
+IGNORED_ABBREVIATIONS = {EdgeTags.Unanalyzable, EdgeTags.Uncertain, COORDINATED_MAIN_REL}
 
 
 def get_json_attrib(d):
