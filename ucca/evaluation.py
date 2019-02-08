@@ -10,7 +10,6 @@ v1.3
 """
 from collections import Counter, OrderedDict
 from itertools import groupby
-
 from operator import attrgetter
 
 from ucca import layer0, layer1, normalization
@@ -346,7 +345,7 @@ def evaluate(guessed, ref, converter=None, verbose=False, constructions=DEFAULT,
     :param fscore: whether to compute precision, recall and f1 score
     :param errors: whether to print the mistakes
     :param normalize: flatten centers and move common functions to root before evaluation - modifies passages
-    :param eval_type: specific evaluation type to limit to
+    :param eval_type: specific evaluation type(s) to limit to
     :param ref_yield_tags: reference passage for fine-grained evaluation
     :return: Scores object
     """
@@ -359,6 +358,8 @@ def evaluate(guessed, ref, converter=None, verbose=False, constructions=DEFAULT,
             normalization.normalize(passage)  # flatten Cs inside Cs
         move_functions(guessed, ref)  # move common Fs to be under the root
 
+    if isinstance(eval_type, str):
+        eval_type = [eval_type]
     evaluator = Evaluator(verbose, constructions, units, fscore, errors)
     return Scores((evaluation_type, evaluator.get_scores(guessed, ref, evaluation_type, r=ref_yield_tags))
-                  for evaluation_type in ([eval_type] if eval_type else EVAL_TYPES))
+                  for evaluation_type in (eval_type or EVAL_TYPES))

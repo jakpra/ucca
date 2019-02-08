@@ -88,12 +88,10 @@ def summarize(args, results, eval_type):
 
 
 def check_args(args):
-    if args.out_file or args.summary_file:
+    if args.out_file or args.summary_file or not (args.units or args.fscore or args.errors):
         args.fscore = True
     if args.errors_file:
         args.errors = True
-    if not (args.units or args.fscore or args.errors):
-        argparser.error("At least one of -u, -f or -e is required.")
     return args
 
 

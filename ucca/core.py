@@ -314,10 +314,9 @@ class Edge:
                 self._root._change_edge_tag(self, old_tag)
                 return
 
-
     @property
     def tags(self):
-        return [category.tag for category in self._categories]
+        return [category.tag for category in self.categories]
 
     @property
     def root(self):
@@ -329,7 +328,11 @@ class Edge:
 
     @property
     def categories(self):
-        return self._categories
+        try:
+            return self._categories
+        except AttributeError as e:
+            raise IOError("Load passage %s from pickle saved with UCCA<1.1. Please load from XML instead." %
+                          self.root.ID) from e
 
     @categories.setter
     def categories(self, new_categories):
@@ -377,7 +380,7 @@ class Edge:
     def add(self, tag, slot="", layer="", parent=""):
         """ adds a new category to the edge"""
         c = Category(tag, slot, layer, parent)
-        self._categories.append(c)
+        self.categories.append(c)
         if c.tag not in self.root.categories:
             self.root._update_categories(c)
         if c.parent and c.parent not in self.root.refined_categories:
@@ -388,7 +391,7 @@ class Edge:
         return self.ID
 
     def __getitem__(self, index):
-        return self._categories[index]
+        return self.categories[index]
 
 
 class Node:
