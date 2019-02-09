@@ -367,24 +367,32 @@ def get_streusle_docs(streusle_file):
 
     return docs
 
-def get_unit_passage(streusle_docs, ucca_path):
+def get_passages(streusle_file, ucca_path, annotate=True):
 
     v2_docids = set()
     with open(ucca_path + '/v2.txt') as f:
         for line in f:
             v2_docids.add(line.strip())
 
-    for doc_id, doc in streusle_docs.items():
+    for doc_id, doc in get_streusle_docs(streusle_file).items():
         ucca_file = ucca_path + '/xml/' + doc_id + '.xml'
         if doc_id not in v2_docids or not os.path.exists(ucca_file): continue
 
         passage = uconv.file2passage(ucca_file)
 
         tokens = [tok['word'] for tok in doc['toks']]
-        terminals = dict(passage.layer('0').pairs)
+        terminals = passage.layer('0').pairs
         assert len(terminals) == len(
             tokens), f'unequal number of UCCA terminals and SNACS tokens: {terminals}, {tokens}'
 
-        for unit in list(doc['exprs'].values()):
-            yield (unit, passage)
+        if annotate:
+            for tok, (_, term) in zip(doc['toks'], terminals.items()):
+                print(tok)
+                term.extra.update(tok)
+                print(term.extra)
 
+            for unit in list(doc['exprs'].values()):
+                for tn in unit['toknums']:
+                    terminals[tn].extra.update(unit['heuristic_relation'])
+
+        yield doc, passage
