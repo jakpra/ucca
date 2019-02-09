@@ -14,12 +14,21 @@ from ucca import core as ucore, convert as uconv, layer0 as ul0, layer1 as ul1, 
 def main(args):
     try:
         integrate = True
+        annotate = False
         if '-n' in args:
             args.remove('-n')
             args.append('--no-integrate')
         if '--no-integrate' in args:
             integrate = False
             args.remove('--no-integrate')
+
+        if '-a' in args:
+            args.remove('-a')
+            args.append('--annotate-terminals')
+        if '--annotate-terminals' in args:
+            integrate = False
+            annotate = True
+            args.remove('--annotate-terminals')
         streusle_file = args[0] #'../../streusle/streusle.govobj.json' #args[0] #'streusle.govobj.json'  # sys.argv[1]
         ucca_path = args[1] #'../../UCCA_English-EWT' #args[1] # '/home/jakob/nert/corpora/UCCA_English-EWT/xml'  # sys.argv[2]
         out_dir = args[2]
@@ -60,19 +69,20 @@ def main(args):
 
     unit_times = []
 
-    for doc_id, doc in usnacs.get_streusle_docs(streusle_file).items():
-        ucca_file = ucca_path + '/xml/' + doc_id + '.xml'
-        if doc_id not in v2_docids or not os.path.exists(ucca_file): continue
-
-        passage = uconv.file2passage(ucca_file)
+    for passage, doc in usnacs.get_passages(streusle_file, ucca_path, annotate=(integrate or annotate)):
         if not integrate:
             for p in uconv.split_passage(passage, doc['ends'], map(lambda x: ''.join(x['sent_id'].split('-')[-2:]), doc['sents'])):
                 uconv.passage2file(p, out_dir + '/' + p.ID + '.xml')
             continue
 
-        for _, unit in sorted(doc['exprs'].items()):
 
-            if 'heuristic_relation' not in unit or unit['ss'][0] in '`?':
+        # for _, unit in sorted(doc['exprs'].items()):
+
+        for pos, terminal in passage.layer('0').pairs:
+
+            unit = terminal.extra
+
+            if 'ss' not in unit or unit['ss'][0] != 'p':
                 continue
 
             start_time = time.time()
@@ -80,10 +90,10 @@ def main(args):
 
             refined, error = usnacs.find_refined(unit, passage)
 
-            if doc_id == '231203' and unit['sent_offs'] == '0005':
-                print(unit)
-                print(passage)
-                print(error)
+            # if doc_id == '231203' and unit['sent_offs'] == '0005':
+            #     print(unit)
+            #     print(passage)
+            #     print(error)
 
             for r in refined:
                 if r.refinement:
