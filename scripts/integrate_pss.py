@@ -13,6 +13,13 @@ from ucca import core as ucore, convert as uconv, layer0 as ul0, layer1 as ul1, 
 # HOME = 'C:/Users/Jakob/AppData/Local/Packages/CanonicalGroupLimited.UbuntuonWindows_79rhkp1fndgsc/LocalState/rootfs/home/jakob'
 def main(args):
     try:
+        integrate = True
+        if '-n' in args:
+            args.remove('-n')
+            args.append('--no-integrate')
+        if '--no-integrate' in args:
+            integrate = False
+            args.remove('--no-integrate')
         streusle_file = args[0] #'../../streusle/streusle.govobj.json' #args[0] #'streusle.govobj.json'  # sys.argv[1]
         ucca_path = args[1] #'../../UCCA_English-EWT' #args[1] # '/home/jakob/nert/corpora/UCCA_English-EWT/xml'  # sys.argv[2]
         out_dir = args[2]
@@ -58,6 +65,10 @@ def main(args):
         if doc_id not in v2_docids or not os.path.exists(ucca_file): continue
 
         passage = uconv.file2passage(ucca_file)
+        if not integrate:
+            for p in uconv.split_passage(passage, doc['ends'], map(lambda x: ''.join(x['sent_id'].split('-')[-2:]), doc['sents'])):
+                uconv.passage2file(p, out_dir + '/' + p.ID + '.xml')
+            continue
 
         for _, unit in sorted(doc['exprs'].items()):
 
@@ -141,7 +152,10 @@ def main(args):
             plt.clf()
 
         # with open(out_dir + '/' + ucca_file.rsplit('/', maxsplit=1)[1], 'w') as f:
-        uconv.passage2file(passage, out_dir + '/' + ucca_file.rsplit('/', maxsplit=1)[1])
+
+        for p in uconv.split_passage(passage, doc['ends'],
+                                     map(lambda x: ''.join(x['sent_id'].split('-')[-2:]), doc['sents'])):
+            uconv.passage2file(p, out_dir + '/' + p.ID + '.xml')
 
         # print(f'on avg {len(unit_times)/sum(unit_times)} u/s', file=sys.stderr)
 
