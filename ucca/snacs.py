@@ -179,10 +179,10 @@ def heuristic_h(edge:ucore.Edge, passage:ucore.Passage, ss, lexcat='', **kwargs)
     if ss == 'p.Approximator':
         return edge
 
-def find_refined(unit: dict, passage:ucore.Passage):
+def find_refined(term:ul0.Terminal, passage:ucore.Passage, local=False):
 
-    if 'heuristic_relation' not in unit or unit['ss'][0] in '`?':
-        raise ValueError
+    if 'ss' not in term.extra or term.extra['ss'][0] != 'p':
+        return [], {}
 
     successes_for_unit = fails_for_unit = 0
     failed_heuristics = []
@@ -191,31 +191,31 @@ def find_refined(unit: dict, passage:ucore.Passage):
     mwe_una_fail = no_match = 0
     warnings = 0
 
-    ss = unit['ss']
-    lexcat = unit['lexcat']
-    lexlemma = unit['lexlemma']
-    toknums = sorted(unit['toknums'])
-    span = f'{toknums[0]}-{toknums[-1]}'
-    rel = unit['heuristic_relation']
-    gov, govlemma = rel.get('gov', -1), rel.get('govlemma', None)
-    obj, objlemma = rel.get('obj', -1), rel.get('objlemma', None)
+    ss = term.extra['ss']
+    lexcat = term.extra['lexcat']
+    # lexlemma = term.extra['lexlemma']
+    toknums = sorted(map(int, str(term.extra[('local_' if local else '') + 'toknums']).split()))
+    # span = f'{toknums[0]}-{toknums[-1]}'
+    # rel = term.extra['heuristic_relation']
+    gov, govlemma = term.extra.get('gov', -1), term.extra.get('govlemma', None)
+    obj, objlemma = term.extra.get('obj', -1), term.extra.get('objlemma', None)
     pp_idiom = lexcat == 'PP'
     # if lexcat == 'PP':
     #     obj, objlemma = None, None
-    config = rel['config']
+    config = term.extra['config']
 
     terminals = dict(passage.layer('0').pairs)
 
     gov_term = terminals.get(gov, None)
     obj_term = terminals.get(obj, None)
 
-    try:
-        unit_terminals = [terminals[toknum] for toknum in toknums]
-    except KeyError:
-        print(toknums)
-        print(terminals)
-        exit(1)
-    preterminals = unit_terminals[0].parents
+    # try:
+    #     unit_terminals = [terminals[toknum] for toknum in toknums]
+    # except KeyError:
+    #     print(toknums)
+    #     print(terminals)
+    #     exit(1)
+    preterminals = term.parents
     assert len(preterminals) == 1
 
     preterminal = preterminals[0]
@@ -223,14 +223,14 @@ def find_refined(unit: dict, passage:ucore.Passage):
     failed_heuristics = []
 
     # check whether SNACS mwe is UNA unit in UCCA
-    if len(toknums) > 1 and not pp_idiom:
-        if not all(t.parents[0] == preterminal for t in unit_terminals[1:]):
-            # skip SNACS unit if not all tokens are included in UCCA unit
-            # fail(unit, None, f'terminals comprising strong MWE are not unanalyzable: [{lexlemma}] in {passage}')
-            mwe_una_fail += 1
-            fails_for_unit += 1
-            failed_heuristics.append('MWE_UNA')
-            return [], {} #'failed_heuristics':failed_heuristics}
+    # if len(toknums) > 1 and not pp_idiom:
+    #     if not all(t.parents[0] == preterminal for t in unit_terminals[1:]):
+    #         # skip SNACS unit if not all tokens are included in UCCA unit
+    #         # fail(unit, None, f'terminals comprising strong MWE are not unanalyzable: [{lexlemma}] in {passage}')
+    #         mwe_una_fail += 1
+    #         fails_for_unit += 1
+    #         failed_heuristics.append('MWE_UNA')
+    #         return [], {} #'failed_heuristics':failed_heuristics}
 
     if len(preterminal.terminals) > len(toknums):
         # warn if UCCA UNA unit is larger than SNACS unit
@@ -271,7 +271,7 @@ def find_refined(unit: dict, passage:ucore.Passage):
 
             c += 1
             if not ref:
-                print(unit)
+                print(term.extra)
                 input()
                 c_fail += 1
                 failed_heuristics.append('C')
@@ -313,7 +313,7 @@ def find_refined(unit: dict, passage:ucore.Passage):
             no_match += 1
             failed_heuristics.append('__ALL__')
 
-        if ref:
+        if ref is not None:
             refined.append(ref)
 
     error = {'abgh': abgh, 'c': c, 'd': d, 'e': e,
@@ -323,7 +323,7 @@ def find_refined(unit: dict, passage:ucore.Passage):
              'warnings':warnings}
              # 'failed_heuristics':failed_heuristics}
 
-    return refined, error
+    return (refined if len(refined) >= 1 else preterminal.incoming), error
 
 def get_streusle_docs(streusle_file):
 
@@ -386,13 +386,20 @@ def get_passages(streusle_file, ucca_path, annotate=True):
             tokens), f'unequal number of UCCA terminals and SNACS tokens: {terminals}, {tokens}'
 
         if annotate:
-            for tok, (_, term) in zip(doc['toks'], terminals.items()):
-                print(tok)
-                term.extra.update(tok)
-                print(term.extra)
+            for tok, (_, term) in zip(doc['toks'], terminals):
+                for k, v in tok.items():
+                    if k != '#':
+                        term.extra[k] = v
 
             for unit in list(doc['exprs'].values()):
-                for tn in unit['toknums']:
-                    terminals[tn].extra.update(unit['heuristic_relation'])
+                terminal = terminals[unit['toknums'][0]-1][1]
+                terminal.extra['ss'] = unit['ss']
+                terminal.extra['ss2'] = unit['ss2']
+                terminal.extra['toknums'] = ' '.join(map(str, unit['toknums']))
+                terminal.extra['local_toknums'] = ' '.join(map(str, unit['local_toknums']))
+                terminal.extra['lexlemma'] = unit['lexlemma']
+                terminal.extra['lexcat'] = unit['lexcat']
+                terminal.extra['config'] = unit['heuristic_relation']['config']
+                terminal.extra.update(unit['heuristic_relation'])
 
         yield doc, passage

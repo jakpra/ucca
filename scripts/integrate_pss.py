@@ -14,21 +14,21 @@ from ucca import core as ucore, convert as uconv, layer0 as ul0, layer1 as ul1, 
 def main(args):
     try:
         integrate = True
-        annotate = False
-        if '-n' in args:
-            args.remove('-n')
+        annotate = True
+        if '-I' in args:
+            args.remove('-I')
             args.append('--no-integrate')
         if '--no-integrate' in args:
             integrate = False
             args.remove('--no-integrate')
 
-        if '-a' in args:
-            args.remove('-a')
-            args.append('--annotate-terminals')
-        if '--annotate-terminals' in args:
+        if '-A' in args:
+            args.remove('-A')
+            args.append('--no-annotate')
+        if '--no-annotate' in args:
             integrate = False
-            annotate = True
-            args.remove('--annotate-terminals')
+            annotate = False
+            args.remove('--no-annotate')
         streusle_file = args[0] #'../../streusle/streusle.govobj.json' #args[0] #'streusle.govobj.json'  # sys.argv[1]
         ucca_path = args[1] #'../../UCCA_English-EWT' #args[1] # '/home/jakob/nert/corpora/UCCA_English-EWT/xml'  # sys.argv[2]
         out_dir = args[2]
@@ -69,7 +69,7 @@ def main(args):
 
     unit_times = []
 
-    for passage, doc in usnacs.get_passages(streusle_file, ucca_path, annotate=(integrate or annotate)):
+    for doc, passage in usnacs.get_passages(streusle_file, ucca_path, annotate=(integrate or annotate)):
         if not integrate:
             for p in uconv.split_passage(passage, doc['ends'], map(lambda x: ''.join(x['sent_id'].split('-')[-2:]), doc['sents'])):
                 uconv.passage2file(p, out_dir + '/' + p.ID + '.xml')
@@ -80,15 +80,16 @@ def main(args):
 
         for pos, terminal in passage.layer('0').pairs:
 
-            unit = terminal.extra
-
-            if 'ss' not in unit or unit['ss'][0] != 'p':
+            if 'ss' not in terminal.extra or terminal.extra['ss'][0] != 'p':
+                # print(terminal.extra)
                 continue
+
+            # print('ok')
 
             start_time = time.time()
             unit_counter += 1
 
-            refined, error = usnacs.find_refined(unit, passage)
+            refined, error = usnacs.find_refined(terminal, passage)
 
             # if doc_id == '231203' and unit['sent_offs'] == '0005':
             #     print(unit)
@@ -99,7 +100,7 @@ def main(args):
                 if r.refinement:
                     pass
                 else:
-                    r.refinement = unit['ss']
+                    r.refinement = terminal.extra['ss']
 
             # TODO
             if len(refined) >= 1:
@@ -118,7 +119,7 @@ def main(args):
             else:
                 unsuccessful_units += 1
 
-                print('FAIL', unit['doc_id'], unit['sent_offs'], unit['local_toknums'], unit['lexlemma'])
+                print('FAIL', doc['id'], terminal.extra['toknums'], terminal.extra['lexlemma'])
 
                 # print(unit)
                 # print(error)

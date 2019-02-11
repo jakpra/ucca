@@ -95,14 +95,10 @@ class Evaluator:
             if eval_type == UNLABELED:
                 mutual_tags[y] = ()
             else:
-<<<<<<< HEAD
                 if eval_type == REFINEMENT:
                     tags = [set((c.edge.tag, c.edge.refinement) for c in m[y]) for m in (m1, m2)]
                 else:
                     tags = [set(c.edge.tag for c in m[y]) for m in (m1, m2)]
-=======
-                tags = [set(t for c in m[y] for t in c.edge.tags) for m in (m1, m2)]
->>>>>>> 5e6dcbe3a2417516c90ed5cd422000adc9844885
                 if eval_type == WEAK_LABELED:
                     tags[0] = expand_equivalents(tags[0])
                 intersection = set.intersection(*tags)

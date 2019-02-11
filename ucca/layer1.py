@@ -459,7 +459,9 @@ class Layer1(core.Layer):
         return fnode
 
     def add_fnode(self, parent, tag, *, implicit=False):
-        return self.add_fnode_multiple(parent, [(tag,)], implicit=implicit)
+        # return self.add_fnode_multiple(parent, [(tag,)], implicit=implicit)
+        return self.add_fnode_multiple(parent, tag, implicit=implicit)
+
 
     def add_remote_multiple(self, parent, edge_categories, child, edge_attrib=None):
         """Adds a new :class:`core`.Edge with remote attribute between the nodes.
