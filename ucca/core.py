@@ -383,10 +383,8 @@ class Edge:
         self.categories.append(c)
         if c.tag not in self.root.categories:
             self.root._update_categories(c)
-        print('ok1')
         if c.parent and c.parent not in self.root.refined_categories:
             self.root._update_refined_categories(c.parent)
-        print('ok2')
         return c
 
     def __repr__(self):
@@ -521,7 +519,6 @@ class Node:
                 is frozen and can't be modified.
 
         """
-        print(edge_categories)
         edge = Edge(root=self._root, parent=self,
                     child=node, attrib=edge_attrib)
         for category in edge_categories:

@@ -43,7 +43,7 @@ def get_text(node):
     return ' '.join([t.text for t in sorted(node.get_terminals(), key=lambda x: x.position)])
 
 
-def heuristic_a(edge:ucore.Edge, passage:ucore.Passage, ss, gov_term=None, obj_term=None, **kwargs):
+def heuristic_a(edge:ucore.Edge, *, gov_term=None, obj_term=None, **kwargs):
     '''
     Participant or circumstantial modifier of a scene
     :param edge:
@@ -53,7 +53,7 @@ def heuristic_a(edge:ucore.Edge, passage:ucore.Passage, ss, gov_term=None, obj_t
     :return: the edge whose FTag is going to be refined with the SNACS scene role
     '''
     parent = edge.parent
-    if edge.tag in (ul1.EdgeTags.Relator, ul1.EdgeTags.Function) and parent.fparent.is_scene:
+    if edge.tag in (ul1.EdgeTags.Relator, ul1.EdgeTags.Function) and parent.fparent is not None and parent.fparent.is_scene:
         if parent.ftag in (ul1.EdgeTags.Process, ul1.EdgeTags.State):
 
             obj_edge = find_in_siblings(obj_term, parent._fedge())
@@ -70,7 +70,7 @@ def heuristic_a(edge:ucore.Edge, passage:ucore.Passage, ss, gov_term=None, obj_t
             if (index_in_parent == 0 or index_in_parent == len(sibs) - 1):
                 return parent._fedge()
 
-def heuristic_b(edge:ucore.Edge, passage:ucore.Passage, ss, gov_term=None, obj_term=None, **kwargs):
+def heuristic_b(edge:ucore.Edge, *, gov_term=None, obj_term=None, **kwargs):
     '''
     Configurative or circumstantial modifier of a non-scene
     :param edge:
@@ -85,7 +85,7 @@ def heuristic_b(edge:ucore.Edge, passage:ucore.Passage, ss, gov_term=None, obj_t
         sibs = siblings(edge)
         index_in_parent = sibs.index(edge)
         if (index_in_parent == 0 or index_in_parent == len(sibs) - 1) \
-            and not parent.fparent.is_scene \
+            and (parent.fparent is None or not parent.fparent.is_scene) \
             and parent.ftag != ul1.EdgeTags.Center:
             return parent._fedge()
         else:
@@ -101,7 +101,7 @@ def heuristic_b(edge:ucore.Edge, passage:ucore.Passage, ss, gov_term=None, obj_t
             else:
                 return obj_edge
 
-def heuristic_c(edge:ucore.Edge, passage:ucore.Passage, ss, lexcat='', obj_term=None, **kwargs):
+def heuristic_c(edge:ucore.Edge, *, lexcat='', obj_term=None, **kwargs):
     '''
     Predication
     :param edge:
@@ -117,7 +117,7 @@ def heuristic_c(edge:ucore.Edge, passage:ucore.Passage, ss, lexcat='', obj_term=
         else:
             return find_in_siblings(obj_term, edge)
 
-def heuristic_d(edge:ucore.Edge, passage:ucore.Passage, ss, obj_term=None, **kwargs):
+def heuristic_d(edge:ucore.Edge, *, obj_term=None, **kwargs):
     '''
     Linkage
     :param edge:
@@ -129,7 +129,7 @@ def heuristic_d(edge:ucore.Edge, passage:ucore.Passage, ss, obj_term=None, **kwa
     if edge.tag == ul1.EdgeTags.Linker:
         return find_in_siblings(obj_term, edge)
 
-def heuristic_e(edge:ucore.Edge, passage:ucore.Passage, ss, lexcat='', **kwargs):
+def heuristic_e(edge:ucore.Edge, *, lexcat='', **kwargs):
     '''
     Intransitive prepositions, "particles", Possessive pronouns
     :param edge:
@@ -141,7 +141,7 @@ def heuristic_e(edge:ucore.Edge, passage:ucore.Passage, ss, lexcat='', **kwargs)
         # if lexcat != 'PRON.POSS':
         return edge
 
-def heuristic_f(edge:ucore.Edge, passage:ucore.Passage, ss, lexcat='', **kwargs):
+def heuristic_f(edge:ucore.Edge, *, lexcat='', **kwargs):
     '''
     Participant possessive pronouns
     :param edge:
@@ -154,7 +154,7 @@ def heuristic_f(edge:ucore.Edge, passage:ucore.Passage, ss, lexcat='', **kwargs)
         if lexcat == 'PRON.POSS':
             return edge
 
-def heuristic_g(edge:ucore.Edge, passage:ucore.Passage, ss, lexcat='', **kwargs):
+def heuristic_g(edge:ucore.Edge, *, lexcat='', **kwargs):
     '''
     Adnominal infinitival purpose markers ("Inherent Purpose")
     :param edge:
@@ -167,7 +167,7 @@ def heuristic_g(edge:ucore.Edge, passage:ucore.Passage, ss, lexcat='', **kwargs)
         if lexcat == 'INF.P':
             return edge.parent._fedge()
 
-def heuristic_h(edge:ucore.Edge, passage:ucore.Passage, ss, lexcat='', **kwargs):
+def heuristic_h(edge:ucore.Edge, ss, lexcat='', **kwargs):
     '''
     Approximator
     :param edge:
@@ -179,7 +179,7 @@ def heuristic_h(edge:ucore.Edge, passage:ucore.Passage, ss, lexcat='', **kwargs)
     if ss == 'p.Approximator':
         return edge
 
-def find_refined(term:ul0.Terminal, passage:ucore.Passage, local=False):
+def find_refined(term:ul0.Terminal, passage=ucore.Passage, local=False):
 
     if 'ss' not in term.extra or term.extra['ss'][0] != 'p':
         return [], {}
@@ -216,7 +216,9 @@ def find_refined(term:ul0.Terminal, passage:ucore.Passage, local=False):
     #     print(terminals)
     #     exit(1)
     preterminals = term.parents
-    assert len(preterminals) == 1
+    if len(preterminals) != 1:
+        print(term.text, [str(pt) for pt in preterminals])
+        return [], {}
 
     preterminal = preterminals[0]
 
@@ -256,10 +258,10 @@ def find_refined(term:ul0.Terminal, passage:ucore.Passage, local=False):
             ref = edge
 
         elif edge.tag in (ul1.EdgeTags.Relator, ul1.EdgeTags.Connector, ul1.EdgeTags.Function):
-            ref = heuristic_h(edge, passage, ss, lexcat=lexcat) or \
-                           heuristic_g(edge, passage, ss, lexcat=lexcat) or \
-                           heuristic_a(edge, passage, ss, gov_term=gov_term, obj_term=obj_term) or \
-                           heuristic_b(edge, passage, ss, gov_term=gov_term, obj_term=obj_term)
+            ref = heuristic_h(edge, ss, lexcat=lexcat) or \
+                           heuristic_g(edge, lexcat=lexcat) or \
+                           heuristic_a(edge, gov_term=gov_term, obj_term=obj_term) or \
+                           heuristic_b(edge, gov_term=gov_term, obj_term=obj_term)
 
             abgh += 1
             if not ref:
@@ -267,7 +269,7 @@ def find_refined(term:ul0.Terminal, passage:ucore.Passage, local=False):
                 failed_heuristics.append('ABGH')
 
         elif edge.tag in (ul1.EdgeTags.State, ul1.EdgeTags.Process):
-            ref = heuristic_c(edge, passage, ss, lexcat=lexcat, obj_term=obj_term)
+            ref = heuristic_c(edge, lexcat=lexcat, obj_term=obj_term)
 
             c += 1
             if not ref:
@@ -277,7 +279,7 @@ def find_refined(term:ul0.Terminal, passage:ucore.Passage, local=False):
                 failed_heuristics.append('C')
 
         elif edge.tag == ul1.EdgeTags.Linker:
-            ref = heuristic_d(edge, passage, ss, obj_term=obj_term)
+            ref = heuristic_d(edge, obj_term=obj_term)
 
             d += 1
             if not ref:
@@ -286,7 +288,7 @@ def find_refined(term:ul0.Terminal, passage:ucore.Passage, local=False):
 
         elif edge.tag in (ul1.EdgeTags.Adverbial, ul1.EdgeTags.Elaborator,
                           ul1.EdgeTags.Participant, ul1.EdgeTags.Time):
-            ref = heuristic_e(edge, passage, ss, lexcat=lexcat)
+            ref = heuristic_e(edge, lexcat=lexcat)
 
             e += 1
             if not ref:
