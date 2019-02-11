@@ -244,6 +244,8 @@ def find_refined(term:ul0.Terminal, passage=ucore.Passage, local=False):
     refined = []
 
     for edge in preterminal.incoming:
+        if edge is None:
+            continue
 
         ref = None
 
