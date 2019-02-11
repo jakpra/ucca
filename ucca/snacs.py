@@ -217,7 +217,7 @@ def find_refined(term:ul0.Terminal, passage=ucore.Passage, local=False):
     #     exit(1)
     preterminals = term.parents
     if len(preterminals) != 1:
-        print(term.text, [str(pt) for pt in preterminals])
+        # print(term.text, [str(pt) for pt in preterminals])
         return [], {}
 
     preterminal = preterminals[0]
