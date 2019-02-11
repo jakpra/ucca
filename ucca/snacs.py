@@ -250,7 +250,8 @@ def find_refined(term:ul0.Terminal, passage=ucore.Passage, local=False):
         ref = None
 
         if edge.tag == ul1.EdgeTags.Center:
-            edge = edge.parent._fedge()
+            if edge.parent._fedge() is not None:
+               edge = edge.parent._fedge()
 
         # if edge.attrib.get('remote') or edge.child.attrib.get('implicit'):
         #     refined = None
