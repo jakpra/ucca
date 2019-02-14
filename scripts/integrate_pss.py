@@ -89,7 +89,7 @@ def main(args):
             start_time = time.time()
             unit_counter += 1
 
-            refined, error = usnacs.find_refined(terminal, passage)
+            refined, error = usnacs.find_refined(terminal, dict(passage.layer(ul0.LAYER_ID).pairs))
 
             # if doc_id == '231203' and unit['sent_offs'] == '0005':
             #     print(unit)

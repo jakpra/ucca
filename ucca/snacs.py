@@ -179,7 +179,7 @@ def heuristic_h(edge:ucore.Edge, ss, lexcat='', **kwargs):
     if ss == 'p.Approximator':
         return edge
 
-def find_refined(term:ul0.Terminal, passage=ucore.Passage, local=False):
+def find_refined(term:ul0.Terminal, terminals:dict, local=False):
 
     if 'ss' not in term.extra or term.extra['ss'][0] != 'p':
         return [], {}
@@ -197,14 +197,14 @@ def find_refined(term:ul0.Terminal, passage=ucore.Passage, local=False):
     toknums = sorted(map(int, str(term.extra[('local_' if local else '') + 'toknums']).split()))
     # span = f'{toknums[0]}-{toknums[-1]}'
     # rel = term.extra['heuristic_relation']
-    gov, govlemma = term.extra.get('gov', -1), term.extra.get('govlemma', None)
-    obj, objlemma = term.extra.get('obj', -1), term.extra.get('objlemma', None)
+    gov, govlemma = term.extra.get(('local_' if local else '') + 'gov', -1), term.extra.get('govlemma', None)
+    obj, objlemma = term.extra.get(('local_' if local else '') + 'obj', -1), term.extra.get('objlemma', None)
     pp_idiom = lexcat == 'PP'
     # if lexcat == 'PP':
     #     obj, objlemma = None, None
     config = term.extra['config']
 
-    terminals = dict(passage.layer('0').pairs)
+    # terminals = dict(passage.layer('0').pairs)
 
     gov_term = terminals.get(gov, None)
     obj_term = terminals.get(obj, None)
@@ -276,8 +276,8 @@ def find_refined(term:ul0.Terminal, passage=ucore.Passage, local=False):
 
             c += 1
             if not ref:
-                print(term.extra)
-                input()
+                # print(term.extra)
+                # input()
                 c_fail += 1
                 failed_heuristics.append('C')
 
@@ -363,9 +363,11 @@ def get_streusle_docs(streusle_file):
                 expr['local_toknums'] = expr['toknums']
                 expr['toknums'] = [t + tok_offs for t in expr['toknums']]
                 if expr['heuristic_relation']['gov']:
-                    expr['heuristic_relation']['gov'] += tok_offs
+                    expr['heuristic_relation']['local_gov'], expr['heuristic_relation']['gov'] = \
+                        expr['heuristic_relation']['gov'], expr['heuristic_relation']['gov']+tok_offs
                 if expr['heuristic_relation']['obj']:
-                    expr['heuristic_relation']['obj'] += tok_offs
+                    expr['heuristic_relation']['local_obj'], expr['heuristic_relation']['obj'] = \
+                        expr['heuristic_relation']['obj'], expr['heuristic_relation']['obj'] + tok_offs
                 exprs[tuple(expr['toknums'])] = expr
 
         tok_offs += len(sent['toks'])
