@@ -30,7 +30,7 @@ def get_head_terminals(node):
 
 def siblings(edge:ucore.Edge, exclude=False):
     return sorted([e for e in edge.parent.outgoing if not (exclude and edge.child.ID == e.child.ID)],
-                  key=lambda e: e.child.start_position)
+                  key=lambda e: e.child.start_position if type(e.child) == ul1.FoundationalNode else e.child.position)
 
 def find_in_siblings(terminal:ul0.Terminal, edge:ucore.Edge):
     try:
