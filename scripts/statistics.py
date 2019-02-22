@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 
+import argparse
 from collections import Counter
 
-import argparse
 import pandas as pd
 
 from ucca import layer0, layer1
@@ -13,7 +13,7 @@ desc = """Prints statistics on UCCA passages"""
 
 def main(args):
     df = pd.DataFrame(index=args.directories, columns=["sentences", "tokens", "nodes", "discontinuous", "reentrant",
-                                                       "edges", "primary", "remote"])
+                                                       "implicit", "edges", "primary", "remote"])
     df.fillna(0, inplace=True)
     for i, directory in enumerate(args.directories):
         row = df.loc[directory]
@@ -30,10 +30,12 @@ def main(args):
             row["edges"] += len(edges)
             row["primary"] += remote_counter[False]
             row["remote"] += remote_counter[True]
+            row["implicit"] += sum(1 for n in l1.all if n.attrib.get("implicit"))
 
     # Change to percentages
     df["discontinuous"] *= 100. / df["nodes"]
     df["reentrant"] *= 100. / df["nodes"]
+    df["implicit"] *= 100. / df["nodes"]
     df["primary"] *= 100. / df["edges"]
     df["remote"] *= 100. / df["edges"]
 
