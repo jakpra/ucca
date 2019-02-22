@@ -181,8 +181,8 @@ def heuristic_h(edge:ucore.Edge, ss, lexcat='', **kwargs):
 
 def find_refined(term:ul0.Terminal, terminals:dict, local=False):
 
-    if 'ss' not in term.extra or term.extra['ss'][0] != 'p':
-        return [], {}
+    if 'ss' not in term.extra:
+        return[], {}
 
     successes_for_unit = fails_for_unit = 0
     failed_heuristics = []
@@ -221,6 +221,9 @@ def find_refined(term:ul0.Terminal, terminals:dict, local=False):
         return [], {}
 
     preterminal = preterminals[0]
+
+    if term.extra['ss'][0] != 'p':
+        return preterminal.incoming, {}
 
     failed_heuristics = []
 
@@ -339,12 +342,15 @@ def get_streusle_docs(streusle_file):
     exprs = {}
     _doc_id = None
 
+    unit_counter = 0
+
     for sent in streusle:
         doc_id, sent_offs = sent['sent_id'].split('-')[-2:]
 
         if doc_id != _doc_id:
             tok_offs = 0
             if exprs:
+                print(_doc_id)
                 docs[_doc_id] = {'id': _doc_id, 'sents': sents, 'exprs': exprs, 'toks': toks, 'ends': ends}
             _doc_id = doc_id
             exprs = {}
@@ -358,6 +364,7 @@ def get_streusle_docs(streusle_file):
 
         for expr in list(sent['swes'].values()) + list(sent['smwes'].values()):
             if expr['ss'] and 'heuristic_relation' in expr:
+                unit_counter += 1
                 expr['sent_offs'] = sent_offs
                 expr['doc_id'] = doc_id
                 expr['local_toknums'] = expr['toknums']
@@ -372,41 +379,122 @@ def get_streusle_docs(streusle_file):
 
         tok_offs += len(sent['toks'])
 
+    if exprs:
+        print(_doc_id)
+        docs[_doc_id] = {'id': _doc_id, 'sents': sents, 'exprs': exprs, 'toks': toks, 'ends': ends}
+
+    # print(unit_counter)
     return docs
 
-def get_passages(streusle_file, ucca_path, annotate=True):
+def get_passages(streusle_file, ucca_path, annotate=True, target='prep', docids=None, ignore=None):
 
-    v2_docids = set()
-    with open(ucca_path + '/v2.txt') as f:
-        for line in f:
-            v2_docids.add(line.strip())
+
+    TOKEN_MAP = {'``':'"', "''":'"', '--':'-'}
+
+    unit_counter = 0
 
     for doc_id, doc in get_streusle_docs(streusle_file).items():
         ucca_file = ucca_path + '/xml/' + doc_id + '.xml'
-        if doc_id not in v2_docids or not os.path.exists(ucca_file): continue
+        if (docids and doc_id not in docids):
+            print(f'{doc_id} not reviewed')
+            continue
+        if (ignore and doc_id in ignore):
+            print(f'{doc_id} ignored due to diverging tokenization')
+            continue
+        if not os.path.exists(ucca_file):
+            print(f'{ucca_file}: file does not exist')
+            continue
 
         passage = uconv.file2passage(ucca_file)
 
         tokens = [tok['word'] for tok in doc['toks']]
         terminals = passage.layer('0').pairs
-        assert len(terminals) == len(
-            tokens), f'unequal number of UCCA terminals and SNACS tokens: {terminals}, {tokens}'
+
+        term2tok = {}
+        tok2term = {}
+        j = 0
+        acc = ''
+        for i, (_, t) in enumerate(terminals):
+            term2tok[i] = j
+            tok2term[j] = i
+            if j >= len(tokens):
+                assert False, (t.text, i, j, len(tokens), tokens)
+            tok = tokens[j]
+            mapped = TOKEN_MAP.get(tok, tok)
+            if mapped.startswith(t.text):
+                acc = t.text
+            elif t.text in mapped:
+                 acc += t.text
+            else:
+                acc = t.text
+
+            if acc == mapped:
+                j += 1
+
+            # assert acc in mapped, (acc, mapped)
+
+
+        # for x, y in sorted(term2tok.items()):
+        #     print(terminals[x][1].text, tokens[y])
+
+        # assert len(terminals) == len(
+        #     tokens), f'unequal number of UCCA terminals and SNACS tokens: {[t.text for _, t in terminals]}, {tokens}'
+
+        doc['ends'] = [tok2term[e-1]+1 for e in doc['ends']]
 
         if annotate:
-            for tok, (_, term) in zip(doc['toks'], terminals):
+            for i, (_, term) in enumerate(terminals):
+                tok = doc['toks'][term2tok[i]]
                 for k, v in tok.items():
-                    if k != '#':
+                    if k == 'head' and int(v) > 0:
+                        term.extra[k] = str(tok2term[int(v)-1]+1)
+                    elif k != '#':
                         term.extra[k] = v
 
             for unit in list(doc['exprs'].values()):
-                terminal = terminals[unit['toknums'][0]-1][1]
-                terminal.extra['ss'] = unit['ss']
-                terminal.extra['ss2'] = unit['ss2']
+
+                unit_counter += 1
+
+                terminal = terminals[tok2term[unit['toknums'][0]-1]][1]
                 terminal.extra['toknums'] = ' '.join(map(str, unit['toknums']))
                 terminal.extra['local_toknums'] = ' '.join(map(str, unit['local_toknums']))
                 terminal.extra['lexlemma'] = unit['lexlemma']
                 terminal.extra['lexcat'] = unit['lexcat']
+                if unit['lexcat'] == 'DISC':
+                    unit['ss'] == '`d'
                 terminal.extra['config'] = unit['heuristic_relation']['config']
                 terminal.extra.update(unit['heuristic_relation'])
+                terminal.extra['gov'] = None if terminal.extra['gov'] is None else tok2term[int(terminal.extra['gov']) - 1] + 1
+                terminal.extra['obj'] = None if terminal.extra['obj'] is None else tok2term[int(terminal.extra['obj']) - 1] + 1
+                if target == 'obj' and unit['heuristic_relation']['obj'] is not None:
+                    obj = terminals[unit['heuristic_relation']['obj']-1][1]
+                    obj.extra['ss'] = unit.get('ss', '')
+                    obj.extra['ss2'] = unit.get('ss2', '')
+                else:
+                    terminal.extra['ss'] = unit.get('ss', '')
+                    terminal.extra['ss2'] = unit.get('ss2', '')
 
-        yield doc, passage
+                # if unit.get('ss', '')[0] == 'p':
+                #     unit_counter += 1
+
+        yield doc, passage, term2tok
+
+    # print(unit_counter)
+
+
+if __name__ == '__main__':
+
+    # ps = list(get_passages('..\\UCCA-SNACS\\data\\the_little_prince\\de\\pss\\lpp_annotation-chpt1-4.govobj.json', '..\\UCCA_German-LPP', annotate=True, target='prep'))
+
+    for doc, passage, term2tok in get_passages('..\\UCCA-SNACS\\data\\the_little_prince\\de\\pss\\lpp_annotation-chpt1-4.govobj.json', '..\\UCCA_German-LPP', annotate=True, target='prep'):
+
+        for pos, terminal in passage.layer('0').pairs:
+
+            if 'ss' not in terminal.extra or (terminal.extra['ss'][0] != 'p' and terminal.extra['ss'] != '`d'):
+                # print(terminal.extra)
+                continue
+
+            # print('ok')
+
+            start_time = time.time()
+            refined, error = find_refined(terminal, dict(passage.layer(ul0.LAYER_ID).pairs))
