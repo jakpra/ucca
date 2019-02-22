@@ -7,7 +7,8 @@ from collections import Counter
 
 import matplotlib.pyplot as plt
 
-from ucca import core as ucore, convert as uconv, layer0 as ul0, layer1 as ul1, visualization as uviz
+from ucca import core as ucore, convert as uconv, layer0 as ul0, layer1 as ul1
+
 from ucca.snacs import get_passages, find_refined
 
 def main(args):
@@ -16,6 +17,7 @@ def main(args):
         annotate = True
         object = False
         v2_only = True
+        draw = False
         if '-I' in args:
             args.remove('-I')
             args.append('--no-integrate')
@@ -41,6 +43,11 @@ def main(args):
         if '--all' in args:
             v2_only = False
             args.remove('--all')
+
+        if '--draw' in args:
+            draw = True
+            args.remove('--draw')
+            import visualization as uviz
 
         streusle_file = args[0] #'../../streusle/streusle.govobj.json' #args[0] #'streusle.govobj.json'  # sys.argv[1]
         ucca_path = args[1] #'../../UCCA_English-EWT' #args[1] # '/home/jakob/nert/corpora/UCCA_English-EWT/xml'  # sys.argv[2]
@@ -130,10 +137,11 @@ def main(args):
             unit_times.append(time.time() - start_time)
 
 
-        for sent, psg in zip(doc['sents'], uconv.split_passage(passage, doc['ends'])):
-            uviz.draw(psg)
-            plt.savefig(f'../graphs/{sent["sent_id"]}.svg')
-            plt.clf()
+        if draw:
+            for sent, psg in zip(doc['sents'], uconv.split_passage(passage, doc['ends'])):
+                uviz.draw(psg)
+                plt.savefig(f'../graphs/{sent["sent_id"]}.svg')
+                plt.clf()
 
         for p in uconv.split_passage(passage, doc['ends'],
                                      map(lambda x: ''.join(x['sent_id'].split('-')[-2:]), doc['sents'])):
