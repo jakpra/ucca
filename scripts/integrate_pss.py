@@ -7,8 +7,8 @@ from collections import Counter
 
 import matplotlib.pyplot as plt
 
-from ucca import core as ucore, convert as uconv, layer0 as ul0, layer1 as ul1, visualization as uviz, snacs as usnacs
-
+from ucca import core as ucore, convert as uconv, layer0 as ul0, layer1 as ul1, visualization as uviz
+from ucca.snacs import get_passages, find_refined
 
 def main(args):
     try:
@@ -88,7 +88,7 @@ def main(args):
 
     tag_refinements = Counter()
 
-    for doc, passage, term2tok in usnacs.get_passages(streusle_file, ucca_path, annotate=(integrate or annotate), target='obj' if object else 'prep', ignore=ignore, docids=v2_docids):
+    for doc, passage, term2tok in get_passages(streusle_file, ucca_path, annotate=(integrate or annotate), target='obj' if object else 'prep', ignore=ignore, docids=v2_docids):
         if not integrate:
             for p in uconv.split_passage(passage, doc['ends'], map(lambda x: ''.join(x['sent_id'].split('-')[-2:]), doc['sents'])):
                 uconv.passage2file(p, out_dir + '/' + p.ID + '.xml')
@@ -106,7 +106,7 @@ def main(args):
             start_time = time.time()
             unit_counter += 1
 
-            refined, error = usnacs.find_refined(terminal, dict(passage.layer(ul0.LAYER_ID).pairs))
+            refined, error = find_refined(terminal, dict(passage.layer(ul0.LAYER_ID).pairs))
 
             for r in refined:
                 # TODO: deal with doubly refined edges
