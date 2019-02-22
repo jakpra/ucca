@@ -936,7 +936,14 @@ def from_json(lines, *args, skip_category_mapping=False, by_external_id=False, *
         if not unit_categories:
             raise ValueError("Unit %s has no categories" % tree_id)
 
-        edge_attrib = {"uncertain": True} if any(uc[0] == EdgeTags.Uncertain for uc in unit_categories) else None
+        edge_attrib = {}
+        for unit_category, *_ in unit_categories:
+            if unit_category == EdgeTags.Uncertain:
+                edge_attrib["uncertain"] = True
+            elif unit_category == COORDINATED_MAIN_REL:
+                edge_attrib[COORDINATED_MAIN_REL] = True
+        if not edge_attrib:
+            edge_attrib = None
         unit_categories = [uc for uc in unit_categories if uc[0] not in IGNORED_ABBREVIATIONS]
         children_tokens = [] if unit["type"] == "IMPLICIT" else unit["children_tokens"]
         try:

@@ -224,12 +224,13 @@ def flatten_participants(node):
     If there is an implicit A in a scene without a main relation, remove it.
     """
     if node.tag == L1Tags.Foundational:
-        if len(node.participants) == len(node.children) == 1:
+        participants = node.participants
+        if len(participants) == len(node.children) == 1 and len(participants[0].ftags) == 1:
             for edge in node.incoming:
-                copy_edge(edge, child=node.participants[0])
+                copy_edge(edge, child=participants[0])
             return destroy(node)
-        elif node.participants and not node.is_scene():
-            for child in node.participants:
+        elif participants and not node.is_scene():
+            for child in participants:
                 if child.attrib.get("implicit"):
                     destroy(child)
     return node
