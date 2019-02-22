@@ -70,7 +70,7 @@ def heuristic_a(edge:ucore.Edge, *, gov_term=None, obj_term=None, **kwargs):
             if (index_in_parent == 0 or index_in_parent == len(sibs) - 1):
                 return parent._fedge()
 
-def heuristic_b(edge:ucore.Edge, *, gov_term=None, obj_term=None, **kwargs):
+def heuristic_b(edge:ucore.Edge, *, gov_term=None, obj_term=None, lexcat='', **kwargs):
     '''
     Configurative or circumstantial modifier of a non-scene
     :param edge:
@@ -137,7 +137,7 @@ def heuristic_e(edge:ucore.Edge, *, lexcat='', **kwargs):
     :param ss: SNACS scene role supersense
     :return: the edge whose FTag is going to be refined with the SNACS scene role
     '''
-    if edge.tag in (ul1.EdgeTags.Adverbial, ul1.EdgeTags.Elaborator, ul1.EdgeTags.Participant, ul1.EdgeTags.Time):
+    if lexcat == 'PRON.POSS' or edge.tag in (ul1.EdgeTags.Adverbial, ul1.EdgeTags.Elaborator, ul1.EdgeTags.Participant, ul1.EdgeTags.Time):
         # if lexcat != 'PRON.POSS':
         return edge
 
@@ -263,11 +263,20 @@ def find_refined(term:ul0.Terminal, terminals:dict, local=False):
         if pp_idiom:
             ref = edge
 
+        elif lexcat == 'PRON.POSS' or edge.tag in (ul1.EdgeTags.Adverbial, ul1.EdgeTags.Elaborator,
+                          ul1.EdgeTags.Participant, ul1.EdgeTags.Time):
+            ref = heuristic_e(edge, lexcat=lexcat)
+
+            e += 1
+            if not ref:
+                e_fail += 1
+                failed_heuristics.append('E')
+
         elif edge.tag in (ul1.EdgeTags.Relator, ul1.EdgeTags.Connector, ul1.EdgeTags.Function):
             ref = heuristic_h(edge, ss, lexcat=lexcat) or \
                            heuristic_g(edge, lexcat=lexcat) or \
                            heuristic_a(edge, gov_term=gov_term, obj_term=obj_term) or \
-                           heuristic_b(edge, gov_term=gov_term, obj_term=obj_term)
+                           heuristic_b(edge, gov_term=gov_term, obj_term=obj_term, lexcat=lexcat)
 
             abgh += 1
             if not ref:
@@ -291,15 +300,6 @@ def find_refined(term:ul0.Terminal, terminals:dict, local=False):
             if not ref:
                 d_fail += 1
                 failed_heuristics.append('D')
-
-        elif edge.tag in (ul1.EdgeTags.Adverbial, ul1.EdgeTags.Elaborator,
-                          ul1.EdgeTags.Participant, ul1.EdgeTags.Time):
-            ref = heuristic_e(edge, lexcat=lexcat)
-
-            e += 1
-            if not ref:
-                e_fail += 1
-                failed_heuristics.append('E')
 
         # elif edge.tag == ul1.EdgeTags.Participant:
         #     refined = heuristic_f(edge, passage, ss, lexcat=lexcat)
@@ -386,10 +386,8 @@ def get_streusle_docs(streusle_file):
     # print(unit_counter)
     return docs
 
-def get_passages(streusle_file, ucca_path, annotate=True, target='prep', docids=None, ignore=None):
+def get_passages(streusle_file, ucca_path, annotate=True, target='prep', docids=None, ignore=None, diverging_tok=False, token_map={}):
 
-
-    TOKEN_MAP = {'``':'"', "''":'"', '--':'-'}
 
     unit_counter = 0
 
@@ -412,26 +410,30 @@ def get_passages(streusle_file, ucca_path, annotate=True, target='prep', docids=
 
         term2tok = {}
         tok2term = {}
-        j = 0
-        acc = ''
-        for i, (_, t) in enumerate(terminals):
-            term2tok[i] = j
-            tok2term[j] = i
-            if j >= len(tokens):
-                assert False, (t.text, i, j, len(tokens), tokens)
-            tok = tokens[j]
-            mapped = TOKEN_MAP.get(tok, tok)
-            if mapped.startswith(t.text):
-                acc = t.text
-            elif t.text in mapped:
-                 acc += t.text
-            else:
-                acc = t.text
 
-            if acc == mapped:
-                j += 1
-
-            # assert acc in mapped, (acc, mapped)
+        if diverging_tok:
+            j = 0
+            acc = ''
+            for i, (_, t) in enumerate(terminals):
+                term2tok[i] = j
+                tok2term[j] = i
+                if j >= len(tokens):
+                    assert False, (t.text, i, j, len(tokens), tokens)
+                tok = tokens[j]
+                mapped = token_map.get(tok, tok)
+                if mapped.startswith(t.text):
+                    acc = t.text
+                elif t.text in mapped:
+                     acc += t.text
+                else:
+                    acc = t.text
+                if acc == mapped:
+                    j += 1
+                assert acc in mapped, (acc, mapped)
+        else:
+            assert len(terminals) == len(
+                    tokens), f'unequal number of UCCA terminals and SNACS tokens: {[t.text for _, t in terminals]}, {tokens}'
+            term2tok = tok2term = dict(enumerate(range(len(terminals))))
 
 
         # for x, y in sorted(term2tok.items()):
@@ -486,7 +488,25 @@ if __name__ == '__main__':
 
     # ps = list(get_passages('..\\UCCA-SNACS\\data\\the_little_prince\\de\\pss\\lpp_annotation-chpt1-4.govobj.json', '..\\UCCA_German-LPP', annotate=True, target='prep'))
 
-    for doc, passage, term2tok in get_passages('..\\UCCA-SNACS\\data\\the_little_prince\\de\\pss\\lpp_annotation-chpt1-4.govobj.json', '..\\UCCA_German-LPP', annotate=True, target='prep'):
+    ignore = """020851
+                    020992
+                    059005
+                    059416
+                    200957
+                    210066
+                    211797
+                    216456
+                    217359
+                    360937
+                    399348""".split()
+
+    token_map = {'``':'"', "''":'"', '--':'-'}
+
+    # for doc, passage, term2tok in get_passages('..\\UCCA-SNACS\\data\\the_little_prince\\de\\pss\\lpp_annotation-chpt1-4.govobj.json', '..\\UCCA_German-LPP', annotate=True, target='prep'):
+    for doc, passage, term2tok in get_passages(
+                '..\\streusle\\train\\streusle.ud_train.govobj.json',
+                '..\\UCCA_English-EWT', annotate=True, target='prep', ignore=ignore):
+
 
         for pos, terminal in passage.layer('0').pairs:
 

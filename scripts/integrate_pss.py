@@ -84,7 +84,7 @@ def main(args):
 
     unit_times = []
 
-    print('usnacs.get_passages(streusle_file, ucca_path, annotate=(integrate or annotate), ignore=ignore, docids=v2_docids)')
+    # print('usnacs.get_passages(streusle_file, ucca_path, annotate=(integrate or annotate), ignore=ignore, docids=v2_docids)')
 
     tag_refinements = Counter()
 
