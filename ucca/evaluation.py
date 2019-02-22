@@ -96,9 +96,9 @@ class Evaluator:
                 mutual_tags[y] = ()
             else:
                 if eval_type == REFINEMENT:
-                    tags = [set((c.edge.tag, c.edge.refinement) for c in m[y]) for m in (m1, m2)]
+                    tags = [set(c.edge.refinement for c in m[y] if c.edge.refinement) for m in (m1, m2)]
                 else:
-                    tags = [set(c.edge.tag for c in m[y]) for m in (m1, m2)]
+                    tags = [set(tag for c in m[y] for tag in c.edge.tags) for m in (m1, m2)]
                 if eval_type == WEAK_LABELED:
                     tags[0] = expand_equivalents(tags[0])
                 intersection = set.intersection(*tags)
@@ -108,9 +108,9 @@ class Evaluator:
         if counter is not None:
             for y in m1.keys() | m2.keys():
                 if eval_type == REFINEMENT:
-                    tags = [sorted(set((c.edge.tag, c.edge.refinement) for c in m.get(y, ()) if not c.is_unary_child)) for m in (m1, m2)]
+                    tags = [sorted(set(c.edge.refinement for c in m.get(y, ()) if (c.edge.refinement and not c.is_unary_child))) for m in (m1, m2)]
                 else:
-                    tags = [sorted(set(c.edge.tag for c in m.get(y, ()) if not c.is_unary_child)) for m in (m1, m2)]
+                    tags = [sorted(set(tag for c in m.get(y, ()) for tag in c.edge.tags if not c.is_unary_child)) for m in (m1, m2)]
                 counter[tuple("|".join(t) or "<UNMATCHED>" for t in tags)] += 1
 
     def get_scores(self, p1, p2, eval_type, r=None):
@@ -143,7 +143,8 @@ class Evaluator:
                 self.find_mutuals(*yield_cands, eval_type=eval_type, mutual_tags=mutual.setdefault(construction, {}),
                                   counter=None if counters is None else counters.setdefault(construction, Counter()))
 
-        only = [{c: {y: tags for y, tags in d.items() if y not in mutual[c]} for c, d in m.items()} for m in maps]
+        only = [{c: {y: tags for y, tags in d.items() if y not in mutual[c] and (
+                eval_type != REFINEMENT or any(t for t in tags if t.edge.refinement))} for c, d in m.items()} for m in maps]
         res = EvaluatorResults((c, SummaryStatistics(len(mutual[c]), len(only[0].get(c, ())), len(only[1].get(c, ())),
                                                      None if counters is None else counters.get(c))) for c in mutual)
         if self.verbose:

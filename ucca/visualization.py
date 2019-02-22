@@ -126,3 +126,121 @@ def tikz(p, indent=None, node_ids=False):
              for e in sorted(p, key=lambda f: f.child.start_position)
              if not e.attrib.get("remote")] +
             ["}"]))
+
+def edge_label(label, lsep=0, pos=0):
+    return r", " + (f"l sep+={lsep}ex, " if lsep != 0 else "") + r"edge label={node[" + (f"pos={round(0.5+pos, 2)}" if pos != 0 else "midway") + r",sloped,fill=white,inner sep=1pt,font=\sffamily\tiny]{"+label+"}}" if label else ""
+
+def forest(p, indent=None, path='', tag=None):
+    """
+    \begin{forest}
+    [
+        [, edge label={node[midway,sloped,fill=white,inner sep=1pt,font=\sffamily\tiny]{H}}
+          [I, edge label={node[midway,sloped,fill=white,inner sep=1pt,font=\sffamily\tiny]{A}}, tier=word]
+          [went, edge label={node[midway,sloped,fill=white,inner sep=1pt,font=\sffamily\tiny]{P}}, tier=word]
+          [, edge label={node(Go)[midway,sloped,fill=white,inner sep=1pt,font=\sffamily\tiny]{A$|$\psst{Goal}}}
+              [to, edge label={node[midway,sloped,fill=white,inner sep=1pt,font=\sffamily\tiny]{R}}, tier=word]
+              [ohm, edge label={node[midway,sloped,fill=white,inner sep=1pt,font=\sffamily\tiny]{C}}, tier=word]
+          ]
+        ]
+        [after, edge label={node[midway,sloped,fill=white,inner sep=1pt,font=\sffamily\tiny]{L}}, tier=word]
+        [, edge label={node(Ex)[midway,sloped,fill=white,inner sep=1pt,font=\sffamily\tiny]{H$|$\psst{Explanation}}}
+          [reading, edge label={node[midway,sloped,fill=white,inner sep=1pt,font=\sffamily\tiny]{P}}, tier=word]
+          [, l sep+=1em, edge label={node[midway,sloped,fill=white,inner sep=1pt,font=\sffamily\tiny]{A}}
+              [some, edge label={node(Qu)[midway,sloped,fill=white,inner sep=1pt,font=\sffamily\tiny]{Q$|$\psst{Quantity}}}, tier=word]
+              [of, edge label={node[pos=0.6,sloped,fill=white,inner sep=1pt,font=\sffamily\tiny]{R}}, tier=word]
+              [the, edge label={node[pos=0.6,sloped,fill=white,inner sep=1pt,font=\sffamily\tiny]{F}}, tier=word]
+              [reviews, edge label={node[midway,sloped,fill=white,inner sep=1pt,font=\sffamily\tiny]{C}}, tier=word]
+          ]
+        ]
+    %	[., edge label={node[midway,fill=white,font=\tiny]{U}}, tier=word]
+    ]
+    % nonterminals
+    \path[fill=black] (.parent anchor) circle[radius=3pt]
+                      (!1.child anchor) circle[radius=3pt]
+                      (!3.child anchor) circle[radius=3pt]
+                      (!13.child anchor) circle[radius=3pt]
+                      (!32.child anchor) circle[radius=3pt];
+    %% remote edges
+    \draw[dotted] (!3.child anchor) to node(I-remote)[midway,sloped,fill=white,inner sep=1pt,font=\sffamily\tiny]{A} (!11.child anchor);
+    %% lexical supersense edges
+    \draw[dashed, ->, mdgreen] (!131.child anchor) to (Go);
+    \draw[dashed, ->, mdgreen] (!2.child anchor) to (Ex);
+    \draw[dashed, ->, mdgreen] (!322.child anchor) to (Qu);
+    \end{forest}
+    """
+
+
+    if indent is None:
+        l1 = p.layer(layer1.LAYER_ID)
+        strings = []
+        nts = []
+        for hd in l1.heads:
+            string, _nts = forest(hd, indent=1)
+            strings.append(string)
+            nts.extend(_nts)
+        return ((r"""
+\forestset{
+default preamble={
+for tree={parent anchor=north, child anchor=north, s sep-=2.3ex, font=\sffamily\scriptsize}
+}
+}
+\begin{forest}
+""" + ''.join(strings) + \
+               '\n'.join(r"\path[fill=black] (" + nt + " anchor) circle[radius=3pt];" for nt in nts) + \
+               "\n\\end{forest}"), [])
+
+    nts = []
+    rems = []
+    ss = []
+    lsep = 0
+
+    if len(p.outgoing) == 1 and isinstance(p.outgoing[0].child, layer0.Terminal):
+        label = p.ftag
+        if label == 'U':
+            return '', []
+        if p._fedge() is not None and p._fedge().refinement:
+            label += r'$|$\psst{' + p._fedge().refinement.split('.')[1] + '}'
+        return forest(p.outgoing[0].child, indent=indent, path=path, tag=label)
+    elif p.attrib.get('implicit'):
+        text = 'IMP'
+        tier = ', tier=word'
+        label = p.ftag
+    elif isinstance(p, layer0.Terminal):
+        text = p.text
+        tier = ', tier=word'
+        parent = p.incoming[0].parent
+        label = tag if tag is not None else ''
+    else:
+        nts = [] if indent==0 else ['.parent' if indent==1 else ('!' + path + '.child')]
+        text = ''
+        tier = '\n'
+        label = p.ftag
+        if p._fedge() is not None and p._fedge().refinement:
+            label += r'$|$\psst{' + p._fedge().refinement.split('.')[1] + '}'
+
+        max_tag_length = max([len(e.tag + e.refinement if e.refinement else '') for e in p.outgoing] + [0])
+        if max_tag_length > 4:
+            lsep = int(max_tag_length*0.7)
+
+    strings = []
+    for i, e in enumerate(p.outgoing, start=1):
+        if e.attrib.get('remote'):
+            rems.append(rems)
+        else:
+            string, _nts = forest(e.child, indent=indent + 1, path=path + str(i))
+            strings.append(string)
+            nts.extend(_nts)
+
+    return ((" "*indent + "[" + text + edge_label(label, lsep=lsep, pos=lsep/100 if lsep != 0 else 0) + tier + ''.join(strings) + " "*indent + "]\n"), nts)
+
+if __name__ == '__main__':
+
+    import sys
+    from ucca.ioutil import get_passages_with_progress_bar
+
+    ps = sys.argv[1:]
+
+    for passage in get_passages_with_progress_bar(ps, desc="Visualizing"):
+        with open('C:\\Users\\Jakob\\Documents\\ucca-latex\\graph.tex', 'w', encoding='utf-8') as f:
+            print(forest(passage)[0], file=f)
+        # forest(passage)

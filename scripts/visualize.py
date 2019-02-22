@@ -8,6 +8,7 @@ if __name__ == "__main__":
     argparser = ArgumentParser(description="Visualize the given passages as graphs.")
     argparser.add_argument("passages", nargs="+", help="UCCA passages, given as xml/pickle file names")
     argparser.add_argument("-t", "--tikz", action="store_true", help="print tikz code rather than showing plots")
+    argparser.add_argument("-F", "--forest", action="store_true", help="print forest tikz code rather than showing plots")
     argparser.add_argument("-o", "--out-dir", help="directory to save figures in (otherwise displayed immediately)")
     argparser.add_argument("-i", "--node-ids", action="store_true", help="print tikz code rather than showing plots")
     argparser.add_argument("-f", "--format", choices=("png", "svg"), default="png", help="image format")
@@ -27,6 +28,14 @@ if __name__ == "__main__":
             else:
                 with external_write_mode():
                     print(tikz)
+        elif args.forest:
+            forest = visualization.forest(passage)
+            if args.out_dir:
+                with open(os.path.join(args.out_dir, passage.ID + ".forest.txt"), "w") as f:
+                    print(forest, file=f)
+            else:
+                with external_write_mode():
+                    print(forest)
         else:
             import matplotlib.pyplot as plt
             width = len(passage.layer(layer0.LAYER_ID).all) * 19/27
