@@ -22,7 +22,7 @@ def draw(passage, node_ids=False):
                               "color": ("black", "gray", "white")[n.tag == layer1.NodeTags.Linkage or
                                                                   2 * n.attrib.get("implicit", node_ids)]})
                       for n in passage.layer(layer1.LAYER_ID).all])
-    g.add_edges_from([(n.ID, e.child.ID, {"label": '|'.join(e.tags), "style": "dashed" if e.attrib.get("remote") else "solid"})
+    g.add_edges_from([(n.ID, e.child.ID, {"label": '|'.join(str(t) for t in e.tags), "style": "dashed" if e.attrib.get("remote") else "solid"})
                       for layer in passage.layers for n in layer.all for e in n])
     pos = topological_layout(passage)
     nx.draw(g, pos, arrows=False, font_size=10,

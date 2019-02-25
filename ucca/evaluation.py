@@ -130,7 +130,7 @@ class Evaluator:
         """
         mutual = OrderedDict()
         counters = OrderedDict() if self.errors and eval_type == LABELED else None
-        passage_yields = create_passage_yields(r or p2)
+        passage_yields = create_passage_yields(r or p2, terminals=eval_type==REFINEMENT)
         reference_yield_tags = passage_yields[ALL_EDGES.name] if passage_yields else None
         maps = [{} if p is None else create_passage_yields(p, self.constructions, tags=False, reference=p2,
                                                            reference_yield_tags=reference_yield_tags) for p in (p1, p2)]
@@ -359,4 +359,4 @@ def evaluate(guessed, ref, converter=None, verbose=False, constructions=DEFAULT,
         eval_type = [eval_type]
     evaluator = Evaluator(verbose, constructions, units, fscore, errors)
     return Scores((evaluation_type, evaluator.get_scores(guessed, ref, evaluation_type, r=ref_yield_tags))
-                  for evaluation_type in (eval_type or EVAL_TYPES))
+                  for evaluation_type in EVAL_TYPES)  # (eval_type or EVAL_TYPES))

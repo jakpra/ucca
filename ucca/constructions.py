@@ -223,7 +223,7 @@ def verify_terminals_match(passage, reference):
                           "\n".join(map(str, diff_terminals(passage, reference))))
 
 
-def extract_candidates(passage, constructions=None, reference=None, reference_yield_tags=None, verbose=False):
+def extract_candidates(passage, constructions=None, reference=None, reference_yield_tags=None, verbose=False, terminals=False):
     """
     Find candidate edges by constructions in UCCA passage.
     :param passage: Passage object to find constructions in
@@ -249,13 +249,13 @@ def extract_candidates(passage, constructions=None, reference=None, reference_yi
     for node in passage.layer(layer1.LAYER_ID).all:
         for edge in node:
             candidate = Candidate(edge, reference or passage, reference_yield_tags, verbose=verbose)
-            if not candidate.excluded:
+            if (EdgeTags.Terminal in edge and terminals) or not candidate.excluded:
                 for construction in candidate.constructions(constructions):
                     extracted.setdefault(construction, []).append(candidate)
     return extracted
 
 
-def create_passage_yields(p, *args, tags=True, **kwargs):
+def create_passage_yields(p, *args, tags=True, terminals=False, **kwargs):
     """
     :param p: passage to find terminal yields of
     :param tags: instead of Candidates, map simply to their edge tags
@@ -264,7 +264,7 @@ def create_passage_yields(p, *args, tags=True, **kwargs):
                          list of Candidates whose yield (excluding remotes and punctuation) is that set
     """
     yield_candidates = OrderedDict()
-    for construction, candidates in extract_candidates(p, *args, **kwargs).items():
+    for construction, candidates in extract_candidates(p, *args, terminals=terminals, **kwargs).items():
         construction_yield_candidates = yield_candidates[construction] = {}
         for candidate in candidates:
             terminal_yield = candidate.terminal_yield(construction)

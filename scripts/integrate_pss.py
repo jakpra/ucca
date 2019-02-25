@@ -29,7 +29,6 @@ def main(args):
             args.remove('-A')
             args.append('--no-annotate')
         if '--no-annotate' in args:
-            integrate = False
             annotate = False
             args.remove('--no-annotate')
 
@@ -96,10 +95,6 @@ def main(args):
     tag_refinements = Counter()
 
     for doc, passage, term2tok in get_passages(streusle_file, ucca_path, annotate=(integrate or annotate), target='obj' if object else 'prep', ignore=ignore, docids=v2_docids):
-        if not integrate:
-            for p in uconv.split_passage(passage, doc['ends'], map(lambda x: ''.join(x['sent_id'].split('-')[-2:]), doc['sents'])):
-                uconv.passage2file(p, out_dir + '/' + p.ID + '.xml')
-            continue
 
 
         for pos, terminal in passage.layer('0').pairs:
@@ -113,7 +108,10 @@ def main(args):
             start_time = time.time()
             unit_counter += 1
 
-            refined, error = find_refined(terminal, dict(passage.layer(ul0.LAYER_ID).pairs))
+            if integrate:
+                refined, error = find_refined(terminal, dict(passage.layer(ul0.LAYER_ID).pairs))
+            else:
+                refined = terminal.parents[0].incoming
 
             for r in refined:
                 # TODO: deal with doubly refined edges
