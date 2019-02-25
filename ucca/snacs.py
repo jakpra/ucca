@@ -333,7 +333,7 @@ def find_refined(term:ul0.Terminal, terminals:dict, local=False):
 
     return (refined if len(refined) >= 1 else preterminal.incoming), error
 
-def get_streusle_docs(streusle_file):
+def get_streusle_docs(streusle_file, heuristic_relation_only=True):
 
     with open(streusle_file) as f:
         streusle = json.load(f)
@@ -363,7 +363,7 @@ def get_streusle_docs(streusle_file):
         ends.append(len(toks))
 
         for expr in list(sent['swes'].values()) + list(sent['smwes'].values()):
-            if expr['ss'] and 'heuristic_relation' in expr:
+            if expr['ss'] and (not heuristic_relation_only or 'heuristic_relation' in expr):
                 unit_counter += 1
                 expr['sent_offs'] = sent_offs
                 expr['doc_id'] = doc_id
@@ -386,12 +386,13 @@ def get_streusle_docs(streusle_file):
     # print(unit_counter)
     return docs
 
-def get_passages(streusle_file, ucca_path, annotate=True, target='prep', docids=None, ignore=None, diverging_tok=False, token_map={}):
+def get_passages(streusle_file, ucca_path, annotate=True, target='prep', docids=None, ignore=None, diverging_tok=False,
+                 token_map={}, heuristic_relation_only=False):
 
 
     unit_counter = 0
 
-    for doc_id, doc in get_streusle_docs(streusle_file).items():
+    for doc_id, doc in get_streusle_docs(streusle_file, heuristic_relation_only=heuristic_relation_only).items():
         ucca_file = ucca_path + '/xml/' + doc_id + '.xml'
         if (docids and doc_id not in docids):
             print(f'{doc_id} not reviewed')
@@ -462,8 +463,8 @@ def get_passages(streusle_file, ucca_path, annotate=True, target='prep', docids=
                 terminal.extra['local_toknums'] = ' '.join(map(str, unit['local_toknums']))
                 terminal.extra['lexlemma'] = unit['lexlemma']
                 terminal.extra['lexcat'] = unit['lexcat']
-                if unit['lexcat'] == 'DISC':
-                    unit['ss'] == '`d'
+                # if unit['lexcat'] == 'DISC':
+                #     unit['ss'] == '`d'
                 terminal.extra['config'] = unit['heuristic_relation']['config']
                 terminal.extra.update(unit['heuristic_relation'])
                 terminal.extra['gov'] = None if terminal.extra['gov'] is None else tok2term[int(terminal.extra['gov']) - 1] + 1

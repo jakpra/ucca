@@ -16,6 +16,7 @@ def main(args):
         integrate = True
         annotate = True
         object = False
+        include_nv = False
         v2_only = True
         draw = False
         if '-I' in args:
@@ -47,6 +48,10 @@ def main(args):
             draw = True
             args.remove('--draw')
             import visualization as uviz
+
+        if '--nv' in args:
+            include_nv = True
+            args.remove('--nv')
 
         streusle_file = args[0] #'../../streusle/streusle.govobj.json' #args[0] #'streusle.govobj.json'  # sys.argv[1]
         ucca_path = args[1] #'../../UCCA_English-EWT' #args[1] # '/home/jakob/nert/corpora/UCCA_English-EWT/xml'  # sys.argv[2]
@@ -94,12 +99,21 @@ def main(args):
 
     tag_refinements = Counter()
 
-    for doc, passage, term2tok in get_passages(streusle_file, ucca_path, annotate=(integrate or annotate), target='obj' if object else 'prep', ignore=ignore, docids=v2_docids):
+    for doc, passage, term2tok in get_passages(streusle_file, ucca_path, annotate=(integrate or annotate),
+                                               target='obj' if object else 'prep', ignore=ignore, docids=v2_docids,
+                                               heuristic_relation_only=not include_nv):
+
+        if not integrate: # TODO: either remove this or the other integrate check below
+            for p in uconv.split_passage(passage, doc['ends'],
+                                     map(lambda x: ''.join(x['sent_id'].split('-')[-2:]), doc['sents'])):
+                uconv.passage2file(p, out_dir + '/' + p.ID + '.xml')
+            continue
+
 
 
         for pos, terminal in passage.layer('0').pairs:
 
-            if 'ss' not in terminal.extra or terminal.extra['ss'][0] != 'p':
+            if 'ss' not in terminal.extra or terminal.extra['ss'][0] != 'nvp' if include_nv else 'p':
                 # print(terminal.extra)
                 continue
 
@@ -108,7 +122,7 @@ def main(args):
             start_time = time.time()
             unit_counter += 1
 
-            if integrate:
+            if integrate: # TODO: this one
                 refined, error = find_refined(terminal, dict(passage.layer(ul0.LAYER_ID).pairs))
             else:
                 refined = terminal.parents[0].incoming
