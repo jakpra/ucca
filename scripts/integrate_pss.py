@@ -13,7 +13,8 @@ from ucca.snacs import get_passages, find_refined
 
 def main(args):
     try:
-        integrate = True
+        integrate_full = True
+        integrate_term = False
         annotate = True
         object = False
         v2_only = True
@@ -22,16 +23,21 @@ def main(args):
             args.remove('-I')
             args.append('--no-integrate')
         if '--no-integrate' in args:
-            integrate = False
+            integrate_full = False
             args.remove('--no-integrate')
 
         if '-A' in args:
             args.remove('-A')
             args.append('--no-annotate')
         if '--no-annotate' in args:
-            integrate = False
+            integrate_full = False
             annotate = False
             args.remove('--no-annotate')
+
+        if '--term' in args:
+            integrate_term = True
+            integrate_full = False
+            args.remove('--term')
 
         if '-o' in args:
             args.remove('-o')
@@ -48,6 +54,7 @@ def main(args):
             draw = True
             args.remove('--draw')
             import visualization as uviz
+            import matplotlib.pyplot as plt
 
         streusle_file = args[0] #'../../streusle/streusle.govobj.json' #args[0] #'streusle.govobj.json'  # sys.argv[1]
         ucca_path = args[1] #'../../UCCA_English-EWT' #args[1] # '/home/jakob/nert/corpora/UCCA_English-EWT/xml'  # sys.argv[2]
@@ -77,17 +84,18 @@ def main(args):
             for line in f:
                 v2_docids.add(line.strip())
 
-    ignore = """020851
-                020992
-                059005
-                059416
-                200957
-                210066
-                211797
-                216456
-                217359
-                360937
-                399348""".split()
+    ignore = []
+    #"""020851
+    #            020992
+    #            059005
+    #            059416
+    #            200957
+    #            210066
+    #            211797
+    #            216456
+    #            217359
+    #            360937
+    #            399348""".split()
 
     unit_times = []
 
@@ -95,8 +103,9 @@ def main(args):
 
     tag_refinements = Counter()
 
-    for doc, passage, term2tok in get_passages(streusle_file, ucca_path, annotate=(integrate or annotate), target='obj' if object else 'prep', ignore=ignore, docids=v2_docids):
-        if not integrate:
+    for doc, passage, term2tok in get_passages(streusle_file, ucca_path, annotate=(integrate_term or integrate_full or annotate), target='obj' if object else 'prep', ignore=ignore, docids=v2_docids):
+
+        if not integrate_full and not integrate_term:
             for p in uconv.split_passage(passage, doc['ends'], map(lambda x: ''.join(x['sent_id'].split('-')[-2:]), doc['sents'])):
                 uconv.passage2file(p, out_dir + '/' + p.ID + '.xml')
             continue
@@ -113,7 +122,12 @@ def main(args):
             start_time = time.time()
             unit_counter += 1
 
-            refined, error = find_refined(terminal, dict(passage.layer(ul0.LAYER_ID).pairs))
+            if integrate_term:
+                refined = terminal.incoming
+            else:
+                refined, error = find_refined(terminal, dict(passage.layer(ul0.LAYER_ID).pairs))
+
+            # refined, error = find_refined(terminal, dict(passage.layer(ul0.LAYER_ID).pairs))
 
             for r in refined:
                 # TODO: deal with doubly refined edges

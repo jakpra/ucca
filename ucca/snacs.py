@@ -379,7 +379,7 @@ def get_streusle_docs(streusle_file):
 
         tok_offs += len(sent['toks'])
 
-    if exprs:
+    if sents:
         print(_doc_id)
         docs[_doc_id] = {'id': _doc_id, 'sents': sents, 'exprs': exprs, 'toks': toks, 'ends': ends}
 
