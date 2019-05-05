@@ -343,13 +343,14 @@ def get_streusle_docs(streusle_file):
     _doc_id = None
 
     unit_counter = 0
+    sents = []
 
     for sent in streusle:
         doc_id, sent_offs = sent['sent_id'].split('-')[-2:]
 
         if doc_id != _doc_id:
             tok_offs = 0
-            if exprs:
+            if sents:
                 print(_doc_id)
                 docs[_doc_id] = {'id': _doc_id, 'sents': sents, 'exprs': exprs, 'toks': toks, 'ends': ends}
             _doc_id = doc_id
@@ -431,9 +432,16 @@ def get_passages(streusle_file, ucca_path, annotate=True, target='prep', docids=
                     j += 1
                 assert acc in mapped, (acc, mapped)
         else:
-            assert len(terminals) == len(
-                    tokens), f'unequal number of UCCA terminals and SNACS tokens: {[t.text for _, t in terminals]}, {tokens}'
-            term2tok = tok2term = dict(enumerate(range(len(terminals))))
+            diff_term_tok = len(terminals) - len(tokens)
+            if diff_term_tok != 0:
+                for (_, term), tok in zip(terminals, tokens):
+                    assert tok == term.text
+            if diff_term_tok > 0:
+                term2tok = tok2term = dict(enumerate(range(len(tokens))))
+            else:
+                term2tok = tok2term = dict(enumerate(range(len(terminals))))
+            #assert len(terminals) == len(
+            #        tokens), f'unequal number of UCCA terminals and SNACS tokens: {[t.text for _, t in terminals]}, {tokens}'
 
 
         # for x, y in sorted(term2tok.items()):
@@ -446,6 +454,7 @@ def get_passages(streusle_file, ucca_path, annotate=True, target='prep', docids=
 
         if annotate:
             for i, (_, term) in enumerate(terminals):
+                if i not in term2tok: continue
                 tok = doc['toks'][term2tok[i]]
                 for k, v in tok.items():
                     if k == 'head' and int(v) > 0:

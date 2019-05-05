@@ -15,6 +15,7 @@ def main(args):
     try:
         integrate_full = True
         integrate_term = False
+        concatenate = False
         annotate = True
         object = False
         v2_only = True
@@ -25,6 +26,13 @@ def main(args):
         if '--no-integrate' in args:
             integrate_full = False
             args.remove('--no-integrate')
+
+        if '-c' in args:
+            args.remove('-c')
+            args.append('--concatenate')
+        if '--concatenate' in args:
+            concatenate = True
+            args.remove('--concatenate')
 
         if '-A' in args:
             args.remove('-A')
@@ -113,7 +121,10 @@ def main(args):
 
         for pos, terminal in passage.layer('0').pairs:
 
-            if 'ss' not in terminal.extra or terminal.extra['ss'][0] != 'p':
+            pss_label = ''
+            if 'ss' in terminal.extra:
+                pss_label = terminal.extra['ss']
+            if not pss_label.startswith('p'):
                 # print(terminal.extra)
                 continue
 
@@ -134,8 +145,14 @@ def main(args):
                 if r.refinement:
                     pass
                 else:
-                    r.refinement = terminal.extra['ss']
-                    tag_refinements[f'{r.tag}-{r.refinement}'] += 1
+                    if concatenate:
+                        cats, r.categories = r.categories, []
+                        for c in cats:
+                            composit_tag = f'{c.tag}-{pss_label}'
+                            r.add(composit_tag)
+                            tag_refinements[composit_tag] += 1
+                    else:
+                        r.refinement = pss_label
 
             # TODO
             if len(refined) >= 1:
@@ -150,6 +167,7 @@ def main(args):
 
             unit_times.append(time.time() - start_time)
 
+            terminal.extra.pop('ss') # ensuring pss is not also a feature
 
         if draw:
             for sent, psg in zip(doc['sents'], uconv.split_passage(passage, doc['ends'])):
@@ -158,7 +176,12 @@ def main(args):
                 plt.clf()
 
         for p in uconv.split_passage(passage, doc['ends'],
-                                     map(lambda x: ''.join(x['sent_id'].split('-')[-2:]), doc['sents'])):
+                map(lambda x: ''.join(x['sent_id'].split('-')[-2:]), doc['sents'])):
+#            augmented = uconv.join_passages([p, ucore.Passage('0')])
+#            for root_edge in augmented.layer(ul1.LAYER_ID)._head_fnode.outgoing:
+#                if len(root_edge.tag.split('-')) > 1:
+#                    assert False, augmented
+#                root_edge.tag = root_edge.tag.split('-')[0]
             uconv.passage2file(p, out_dir + '/' + p.ID + '.xml')
 
 
