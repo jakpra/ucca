@@ -546,8 +546,8 @@ class Node:
                 is frozen and can't be modified.
 
         """
-        # return self.add_multiple([(tag,)], node, edge_attrib=edge_attrib)
-        return self.add_multiple(tag, node, edge_attrib=edge_attrib)
+        return self.add_multiple([(tag,)], node, edge_attrib=edge_attrib)
+        # return self.add_multiple(tag, node, edge_attrib=edge_attrib)
 
     @ModifyPassage
     def remove(self, edge_or_node):

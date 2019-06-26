@@ -179,22 +179,24 @@ def heuristic_h(edge:ucore.Edge, ss, lexcat='', **kwargs):
     if ss == 'p.Approximator':
         return edge
 
-def find_refined(term:ul0.Terminal, terminals:dict, local=False):
+def find_refined(term:ul0.Terminal, terminals:dict, local=False, ss=None):
 
-    if 'ss' not in term.extra:
-        return[], {}
+    if ss is None:
+        if 'ss' not in term.extra:
+            return [], {}
+        ss = term.extra['ss']
 
     successes_for_unit = fails_for_unit = 0
     failed_heuristics = []
-    abgh = c = d = e = f = g = 0
-    abgh_fail = c_fail = d_fail = e_fail = f_fail = g_fail = 0
+    abgh = a = b = g = h = c = d = ef = e = f = g = idiom = 0
+    e_scn_mod = f_scn_mod = g_scn_mod = h_scn_mod = idiom_scn_mod = 0
+    abgh_fail = c_fail = d_fail = ef_fail = e_fail = f_fail = g_fail = 0
     mwe_una_fail = no_match = 0
     warnings = 0
 
-    ss = term.extra['ss']
-    lexcat = term.extra['lexcat']
+    lexcat = term.extra.get('lexcat')
     # lexlemma = term.extra['lexlemma']
-    toknums = sorted(map(int, str(term.extra[('local_' if local else '') + 'toknums']).split()))
+    toknums = sorted(map(int, str(term.extra.get(('local_' if local else '') + 'toknums', '')).split()))
     # span = f'{toknums[0]}-{toknums[-1]}'
     # rel = term.extra['heuristic_relation']
     gov, govlemma = term.extra.get(('local_' if local else '') + 'gov', -1), term.extra.get('govlemma', None)
@@ -202,39 +204,44 @@ def find_refined(term:ul0.Terminal, terminals:dict, local=False):
     pp_idiom = lexcat == 'PP'
     # if lexcat == 'PP':
     #     obj, objlemma = None, None
-    config = term.extra['config']
+    config = term.extra.get('config')
 
     # terminals = dict(passage.layer('0').pairs)
 
-    gov_term = terminals.get(gov, None)
-    obj_term = terminals.get(obj, None)
+    gov_term = terminals.get(gov)
+    obj_term = terminals.get(obj)
 
-    # try:
-    #     unit_terminals = [terminals[toknum] for toknum in toknums]
-    # except KeyError:
-    #     print(toknums)
-    #     print(terminals)
-    #     exit(1)
+    try:
+        unit_terminals = [terminals[toknum] for toknum in toknums]
+    except KeyError:
+        # print(toknums, file=sys.stderr)
+        # print(terminals, file=sys.stderr)
+        unit_terminals = None
+#        exit(1)
     preterminals = term.parents
     if len(preterminals) != 1:
         # print(term.text, [str(pt) for pt in preterminals])
-        return [], {}
+        return [], {'multiple_preterminals': 1}
 
     preterminal = preterminals[0]
 
-    if term.extra['ss'][0] != 'p':
-        return preterminal.incoming, {}
+    if ss[0] != 'p':
+        return [], {'non_semrole': 1}
 
     failed_heuristics = []
 
     # check whether SNACS mwe is UNA unit in UCCA
-    # if len(toknums) > 1 and not pp_idiom:
-    #     if not all(t.parents[0] == preterminal for t in unit_terminals[1:]):
-    #         # skip SNACS unit if not all tokens are included in UCCA unit
-    #         # fail(unit, None, f'terminals comprising strong MWE are not unanalyzable: [{lexlemma}] in {passage}')
-    #         mwe_una_fail += 1
-    #         fails_for_unit += 1
-    #         failed_heuristics.append('MWE_UNA')
+    if len(toknums) > 1 and unit_terminals:
+        if not all(t.parents[0] == preterminal for t in unit_terminals[1:]):
+            # skip SNACS unit if not all tokens are included in UCCA unit
+            # fail(unit, None, f'terminals comprising strong MWE are not unanalyzable: [{lexlemma}] in {passage}')
+            mwe_una_fail += 1
+            warnings += 1
+    #        fails_for_unit += 1
+            if pp_idiom:
+                failed_heuristics.append('PP_idiom_not_UNA')
+            else:
+                failed_heuristics.append('MWP_not_UNA')
     #         return [], {} #'failed_heuristics':failed_heuristics}
 
     if len(preterminal.terminals) > len(toknums):
@@ -248,6 +255,7 @@ def find_refined(term:ul0.Terminal, terminals:dict, local=False):
 
     for edge in preterminal.incoming:
         if edge is None:
+            fails_for_unit += 1
             continue
 
         ref = None
@@ -262,44 +270,82 @@ def find_refined(term:ul0.Terminal, terminals:dict, local=False):
 
         if pp_idiom:
             ref = edge
+            idiom += 1
+            successes_for_unit += 1
 
         elif lexcat == 'PRON.POSS' or edge.tag in (ul1.EdgeTags.Adverbial, ul1.EdgeTags.Elaborator,
                           ul1.EdgeTags.Participant, ul1.EdgeTags.Time):
             ref = heuristic_e(edge, lexcat=lexcat)
 
-            e += 1
-            if not ref:
-                e_fail += 1
+            ef += 1
+            if ref:
+                if lexcat == 'PRON.POSS':
+                    f += 1
+                    if ref.parent.is_scene():
+                        f_scn_mod += 1
+                else:
+                    e += 1
+                    if ref.parent.is_scene():
+                        e_scn_mod += 1
+            if ref:
+                successes_for_unit += 1
+            else:
+                ef_fail += 1
                 failed_heuristics.append('E')
+                fails_for_unit += 1
 
         elif edge.tag in (ul1.EdgeTags.Relator, ul1.EdgeTags.Connector, ul1.EdgeTags.Function):
-            ref = heuristic_h(edge, ss, lexcat=lexcat) or \
-                           heuristic_g(edge, lexcat=lexcat) or \
-                           heuristic_a(edge, gov_term=gov_term, obj_term=obj_term) or \
-                           heuristic_b(edge, gov_term=gov_term, obj_term=obj_term, lexcat=lexcat)
+            ref = heuristic_h(edge, ss, lexcat=lexcat)
+            if ref:
+                h += 1
+                if ref.parent.is_scene():
+                    h_scn_mod += 1
+            else:
+                ref = heuristic_g(edge, lexcat=lexcat)
+                if ref:
+                    g += 1
+                    if ref.parent.is_scene():
+                        g_scn_mod += 1
+                else:
+                    ref = heuristic_a(edge, gov_term=gov_term, obj_term=obj_term)
+                    if ref:
+                        a += 1
+                    else:
+                        ref = heuristic_b(edge, gov_term=gov_term, obj_term=obj_term, lexcat=lexcat)
+                        if ref:
+                            b += 1
 
             abgh += 1
-            if not ref:
+            if ref:
+                successes_for_unit += 1
+            else:
                 abgh_fail += 1
                 failed_heuristics.append('ABGH')
+                fails_for_unit += 1
 
         elif edge.tag in (ul1.EdgeTags.State, ul1.EdgeTags.Process):
             ref = heuristic_c(edge, lexcat=lexcat, obj_term=obj_term)
 
             c += 1
-            if not ref:
+            if ref:
+                successes_for_unit += 1
+            else:
                 # print(term.extra)
                 # input()
                 c_fail += 1
                 failed_heuristics.append('C')
+                fails_for_unit += 1
 
         elif edge.tag == ul1.EdgeTags.Linker:
             ref = heuristic_d(edge, obj_term=obj_term)
 
             d += 1
-            if not ref:
+            if ref:
+                successes_for_unit += 1
+            else:
                 d_fail += 1
                 failed_heuristics.append('D')
+                fails_for_unit += 1
 
         # elif edge.tag == ul1.EdgeTags.Participant:
         #     refined = heuristic_f(edge, passage, ss, lexcat=lexcat)
@@ -320,16 +366,22 @@ def find_refined(term:ul0.Terminal, terminals:dict, local=False):
         else:
             no_match += 1
             failed_heuristics.append('__ALL__')
+            fails_for_unit += 1
 
         if ref is not None:
             refined.append(ref)
 
-    error = {'abgh': abgh, 'c': c, 'd': d, 'e': e,
-             'abgh_fail':abgh_fail, 'c_fail':c_fail, 'd_fail':d_fail, 'e_fail':e_fail,
+    synt_sem_obj_match = len([e for e in refined if (obj_term is None and e.child == preterminal) or (obj_term is not None and obj_term in e.child.get_terminals())])
+
+    error = {'abgh': abgh, 'a': a, 'b': b, 'c': c, 'd': d, 'ef': ef, 'e': e, 'f': f, 'g': g, 'h': h, 'idiom': idiom,
+             'e_scn_mod': e_scn_mod, 'f_scn_mod': f_scn_mod, 'g_scn_mod': g_scn_mod, 'h_scn_mod': h_scn_mod,
+             'abgh_fail':abgh_fail, 'c_fail':c_fail, 'd_fail':d_fail, 'e_fail':e_fail, 'ef_fail': ef_fail,
              'no_match':no_match, 'mwe_una_fail':mwe_una_fail,
              'successes_for_unit':successes_for_unit, 'fails_for_unit':fails_for_unit,
-             'warnings':warnings}
-             # 'failed_heuristics':failed_heuristics}
+             'synt_sem_obj_match': synt_sem_obj_match,
+             'warnings':warnings,
+             'failed_heuristics':failed_heuristics,
+             'remotes': len([e for e in refined if e.attrib.get('remote')])}
 
     return (refined if len(refined) >= 1 else preterminal.incoming), error
 
@@ -351,7 +403,7 @@ def get_streusle_docs(streusle_file):
         if doc_id != _doc_id:
             tok_offs = 0
             if sents:
-                print(_doc_id)
+                # print(_doc_id)
                 docs[_doc_id] = {'id': _doc_id, 'sents': sents, 'exprs': exprs, 'toks': toks, 'ends': ends}
             _doc_id = doc_id
             exprs = {}
@@ -363,8 +415,11 @@ def get_streusle_docs(streusle_file):
         toks.extend(sent['toks'])
         ends.append(len(toks))
 
+        # print('\n', sent_offs, file=sys.stderr)
         for expr in list(sent['swes'].values()) + list(sent['smwes'].values()):
+            # print('\t', expr, file=sys.stderr)
             if expr['ss'] and 'heuristic_relation' in expr:
+                # print('ok')
                 unit_counter += 1
                 expr['sent_offs'] = sent_offs
                 expr['doc_id'] = doc_id
@@ -381,7 +436,7 @@ def get_streusle_docs(streusle_file):
         tok_offs += len(sent['toks'])
 
     if sents:
-        print(_doc_id)
+        # print(_doc_id)
         docs[_doc_id] = {'id': _doc_id, 'sents': sents, 'exprs': exprs, 'toks': toks, 'ends': ends}
 
     # print(unit_counter)
